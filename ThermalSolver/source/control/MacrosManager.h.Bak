@@ -1,0 +1,59 @@
+//
+// 文件名:     MacrosManager.h
+// 软件包:     JAUMIN
+// 版权　:     北京应用物理与计算数学研究所
+// 版本号:     $Revision: 0 $
+// 修改　:     $Date: 1017-04-28
+// 描述　:     自定义宏
+// 类别　:     %Internal File% ( Don't delete this line )
+//
+
+#ifndef _MACROSMANAGER_H_
+#define _MACROSMANAGER_H_
+
+//#include<string>
+//#include<fstream>
+
+// @  update #5 计算三位坐标系中三角形面积
+// @  at 2017-04-25 by tong
+// @  code by zhu
+// @  used by:PatchStrategy.h(.cpp)
+#define AREA(a, b, c)                      \
+  ((((b)[1] - (a)[1]) * ((c)[2] - (a)[2]) -((b)[2] - (a)[2]) * ((c)[1] - (a)[1]))*(((b)[1] - (a)[1]) * ((c)[2] - (a)[2]) -((b)[2] - (a)[2]) * ((c)[1] - (a)[1]))+\
+  (((b)[2] - (a)[2]) * ((c)[0] - (a)[0]) -((b)[0] - (a)[0]) * ((c)[2] - (a)[2]))*(((b)[2] - (a)[2]) * ((c)[0] - (a)[0]) -((b)[0] - (a)[0]) * ((c)[2] - (a)[2]))+\
+  (((b)[0] - (a)[0]) * ((c)[1] - (a)[1]) -((b)[1] - (a)[1]) * ((c)[0] - (a)[0]))*(((b)[0] - (a)[0]) * ((c)[1] - (a)[1]) -((b)[1] - (a)[1]) * ((c)[0] - (a)[0])))
+
+// @  update #5 2017-04-26
+// @  used by:PatchStrategy.h(.cpp)
+// @  功能：管理使用那种力载荷方式
+#define NODE_LOAD 0  //1： 存在节点力载荷； 0： 不存在
+#define FACE_LOAD 1  //1： 存在表面力载荷； 0： 不存在
+
+// @  update #6 2017-05-02
+// @  used by: PatchStrategy.h(.cpp)
+// @  功能：定义一个结构体
+//         数据内容为某一节点处的前两步、前一步的解向量及右端项值
+//         用于计算使用Newmark-beta方法时的右端项向量
+struct NewmarkData
+{
+    //只是定义，不能在内部初始化
+    double v_solution_older[NDIM];
+    double v_solution_old[NDIM];
+    double v_rhs_older[NDIM];
+    double v_rhs_old[NDIM]; 
+};
+
+
+
+//////////////////////////////////////////////////////test//////////////////////////////////////////////////////
+//字符串拼接， 接入数字，char 或者字符串
+//@param str: 目标字符串数组
+//@BoundaryNum: 字符串数组长度
+//void joint_str_tmm(std::string &str_mm,int step_mm);
+
+//void write_file_tmm(const std::string &str_mmw,double *&coord_mmw,int num_nodes_mmw);
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+const double BETA=1;
+
+#endif

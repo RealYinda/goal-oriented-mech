@@ -1,0 +1,257 @@
+//
+// 文件名:     LinearTet.C
+// 软件包:     JAUMIN
+// 版权　:     北京应用物理与计算数学研究所
+// 版本号:     $Revision: 0 $
+// 修改　:     $Date: Tue May 20 08:39:40 2014 $
+// 描述　:     四面体线弹性单元.
+// 类别　:     %Internal File% ( Don't delete this line )
+//
+
+#include "LinearTet.h"
+
+/*************************************************************************
+ * 构造函数.
+ ************************************************************************/
+LinearTet::LinearTet(const string& name) : BaseElement<NDIM>(name) {}
+
+/*************************************************************************
+ * 析构函数.
+ ************************************************************************/
+LinearTet::~LinearTet() {}
+
+/*************************************************************************
+ * 计算单元刚度矩阵.
+ ************************************************************************/
+void LinearTet::buildStiffElementMatrix(
+    tbox::Array<hier::DoubleVector<NDIM> > real_vertex, const double dt,
+    const double time, tbox::Pointer<tbox::Matrix<double> > ele_mat) {
+  /// 取出积分器对象.
+  tbox::Pointer<IntegratorManager<NDIM> > integrator_manager =
+      IntegratorManager<NDIM>::getManager();
+  tbox::Pointer<BaseIntegrator<NDIM> > integrator =
+      integrator_manager->getIntegrator("LinearTetrahedron");
+
+  /// 取出形函数对象.
+  tbox::Pointer<ShapeFunctionManager<NDIM> > shape_manager =
+      ShapeFunctionManager<NDIM>::getManager();
+  tbox::Pointer<BaseShapeFunction<NDIM> > shape_func =
+      shape_manager->getShapeFunction("LinearTetrahedron");
+
+  /// 取出材料.
+  tbox::Pointer<MaterialManager<NDIM> > material_manager =
+      MaterialManager<NDIM>::getManager();
+  tbox::Pointer<Material> material =
+      material_manager->getMaterial("LinearTetrahedron");
+
+  /// 取出单元上自由度数目.
+  int n_dof = shape_func->getNumberOfDof();
+  ele_mat->resize(n_dof * NDIM, n_dof * NDIM);
+  for (int i = 0; i < n_dof * NDIM; ++i) {
+    for (int j = 0; j < n_dof * NDIM; ++j) {
+      (*ele_mat)(i, j) = 0.0;
+    }
+  }
+  /// 取出积分点数目.
+  int num_quad_pnts = integrator->getNumberOfQuadraturePoints();
+  /// 取出模板单元的面积.
+  double volume = integrator->getElementVolume();
+  /// 取出积分点.
+  tbox::Array<hier::DoubleVector<NDIM> > quad_pnt =
+      integrator->getQuadraturePoints(real_vertex);
+  /// 取出jacobian矩阵行列式.
+  double jac = integrator->getLocal2GlobalJacobian(real_vertex);
+  /// 取出积分点的积分权重.
+  tbox::Array<double> weight = integrator->getQuadratureWeights();
+
+  /// 取出基函数在积分点的值和梯度值.
+  tbox::Array<tbox::Array<tbox::Array<double> > > bas_grad =
+      shape_func->gradient(real_vertex, quad_pnt);
+
+  tbox::Array<tbox::Array<double> > moduli = material->getModuli();
+
+  double a = moduli[0][0];
+  double b = moduli[0][1];
+  double c = moduli[3][3];
+  /// 计算单元刚度矩阵.
+  for (int i = 0; i < n_dof; ++i) {
+    for (int j = 0; j < n_dof; ++j) {
+      for (int l = 0; l < num_quad_pnts; ++l) {
+        double JxW = volume * jac * weight[l];
+        (*ele_mat)(NDIM* i, NDIM* j) +=
+            JxW * (a * bas_grad[l][i][0] * bas_grad[l][j][0] +
+                   c * bas_grad[l][i][1] * bas_grad[l][j][1] +
+                   c * bas_grad[l][i][2] * bas_grad[l][j][2]);
+
+        (*ele_mat)(NDIM* i + 1, NDIM * j + 1) +=
+            JxW * (c * bas_grad[l][i][0] * bas_grad[l][j][0] +
+                   a * bas_grad[l][i][1] * bas_grad[l][j][1] +
+                   c * bas_grad[l][i][2] * bas_grad[l][j][2]);
+
+        (*ele_mat)(NDIM* i + 2, NDIM * j + 2) +=
+            JxW * (c * bas_grad[l][i][0] * bas_grad[l][j][0] +
+                   c * bas_grad[l][i][1] * bas_grad[l][j][1] +
+                   a * bas_grad[l][i][2] * bas_grad[l][j][2]);
+
+        (*ele_mat)(NDIM* i, NDIM* j + 1) +=
+            JxW * b * bas_grad[l][i][0] * bas_grad[l][j][1] +
+            JxW * c * bas_grad[l][j][0] * bas_grad[l][i][1];
+
+        (*ele_mat)(NDIM* i, NDIM* j + 2) +=
+            JxW * b * bas_grad[l][i][0] * bas_grad[l][j][2] +
+            JxW * c * bas_grad[l][j][0] * bas_grad[l][i][2];
+
+        (*ele_mat)(NDIM* i + 1, NDIM * j + 2) +=
+            JxW * b * bas_grad[l][i][1] * bas_grad[l][j][2] +
+            JxW * c * bas_grad[l][j][1] * bas_grad[l][i][2];
+
+        (*ele_mat)(NDIM* i + 1, NDIM * j) +=
+            JxW * b * bas_grad[l][i][1] * bas_grad[l][j][0] +
+            JxW * c * bas_grad[l][j][1] * bas_grad[l][i][0];
+
+        (*ele_mat)(NDIM* i + 2, NDIM * j) +=
+            JxW * b * bas_grad[l][i][2] * bas_grad[l][j][0] +
+            JxW * c * bas_grad[l][j][2] * bas_grad[l][i][0];
+
+        (*ele_mat)(NDIM* i + 2, NDIM * j + 1) +=
+            JxW * b * bas_grad[l][i][2] * bas_grad[l][j][1] +
+            JxW * c * bas_grad[l][j][2] * bas_grad[l][i][1];
+      }
+    }
+  }
+}
+
+/*************************************************************************
+ * 计算单元刚度矩阵.
+ ************************************************************************/
+void LinearTet::buildMassElementMatrix(
+    tbox::Array<hier::DoubleVector<NDIM> > real_vertex, const double dt,
+    const double time, tbox::Pointer<tbox::Matrix<double> > ele_mat) {
+  /// 取出积分器对象.
+  tbox::Pointer<IntegratorManager<NDIM> > integrator_manager =
+      IntegratorManager<NDIM>::getManager();
+  tbox::Pointer<BaseIntegrator<NDIM> > integrator =
+      integrator_manager->getIntegrator("LinearTetrahedron");
+
+  /// 取出形函数对象.
+  tbox::Pointer<ShapeFunctionManager<NDIM> > shape_manager =
+      ShapeFunctionManager<NDIM>::getManager();
+  tbox::Pointer<BaseShapeFunction<NDIM> > shape_func =
+      shape_manager->getShapeFunction("LinearTetrahedron");
+
+  /// 取出材料.
+  tbox::Pointer<MaterialManager<NDIM> > material_manager =
+      MaterialManager<NDIM>::getManager();
+  tbox::Pointer<Material> material =
+      material_manager->getMaterial("LinearTetrahedron");
+
+  /// 取出单元上自由度数目.
+  int n_dof = shape_func->getNumberOfDof();
+  ele_mat->resize(n_dof * NDIM, n_dof * NDIM);
+  /// 取出模板单元的面积.
+  double volume = integrator->getElementVolume();
+  /// 取出jacobian矩阵行列式.
+  double jac = integrator->getLocal2GlobalJacobian(real_vertex);
+
+  double density = material->getDensity();
+
+  for (int i = 0; i < n_dof; ++i) {
+    for (int j = 0; j < NDIM; ++j) {
+      (*ele_mat)(NDIM* i + j, NDIM * i + j) = 0.25 * volume * jac * density;
+    }
+  }
+#if 0 
+  ///  计算单元质量矩阵, 非集中质量.
+  /// 取出积分点数目.
+  int num_quad_pnts = integrator->getNumberOfQuadraturePoints();
+  /// 取出积分点.
+  tbox::Array<hier::DoubleVector<NDIM> >
+    quad_pnt = integrator->getQuadraturePoints(real_vertex);
+  /// 取出积分点的积分权重.
+  tbox::Array<double> weight = integrator->getQuadratureWeights();
+    
+  /// 取出基函数在积分点的值和梯度值.
+  tbox::Array<tbox::Array<double> >
+    bas_val = shape_func->value(real_vertex,quad_pnt);
+  for (int i = 0;i < n_dof; ++ i) {
+    for (int j = 0;j < n_dof; ++ j) {
+      for (int l = 0;l < num_quad_pnts;++ l) {
+        double JxW = volume*jac*weight[l];
+        for(int m = 0; m < NDIM; ++m){
+          (*ele_mat)(NDIM*i+m,NDIM*j+m) +=
+            JxW*density*(bas_val[l][i]*bas_val[l][j]);
+        }
+      }
+    }
+  }
+#endif
+}
+
+/*************************************************************************
+ * 计算单元刚度矩阵.
+ ************************************************************************/
+void LinearTet::buildDumpElementMatrix(
+    tbox::Array<hier::DoubleVector<NDIM> > real_vertex, const double dt,
+    const double time, tbox::Pointer<tbox::Matrix<double> > ele_mat) {}
+
+/*************************************************************************
+ * 计算单元右端项..
+ ************************************************************************/
+void LinearTet::buildElementRHS(
+    tbox::Array<hier::DoubleVector<NDIM> > real_vertex, const double dt,
+    const double time, tbox::Pointer<tbox::Vector<double> > ele_vec) {
+  /// 取出积分器对象.
+  tbox::Pointer<IntegratorManager<NDIM> > integrator_manager =
+      IntegratorManager<NDIM>::getManager();
+  tbox::Pointer<BaseIntegrator<NDIM> > integrator =
+      integrator_manager->getIntegrator("LinearTetrahedron");
+
+  /// 取出形函数对象.
+  tbox::Pointer<ShapeFunctionManager<NDIM> > shape_manager =
+      ShapeFunctionManager<NDIM>::getManager();
+  tbox::Pointer<BaseShapeFunction<NDIM> > shape_func =
+      shape_manager->getShapeFunction("LinearTetrahedron");
+
+  /// 取出单元上自由度数目.
+  int n_dof = shape_func->getNumberOfDof();
+  ele_vec->resize(n_dof * NDIM);
+  for (int j = 0; j < n_dof * NDIM; ++j) {
+    (*ele_vec)[j] = 0.0;
+  }
+  /// 取出积分点数目.
+  int num_quad_pnts = integrator->getNumberOfQuadraturePoints();
+  /// 取出模板单元的面积.
+  double volume = integrator->getElementVolume();
+  /// 取出积分点.
+  tbox::Array<hier::DoubleVector<NDIM> > quad_pnt =
+      integrator->getQuadraturePoints(real_vertex);
+  /// 取出jacobian矩阵行列式.
+  double jac = integrator->getLocal2GlobalJacobian(real_vertex);
+  /// 取出积分点的积分权重.
+  tbox::Array<double> weight = integrator->getQuadratureWeights();
+
+  /// 取出基函数在积分点的值和梯度值.
+  tbox::Array<tbox::Array<double> > bas_val =
+      shape_func->value(real_vertex, quad_pnt);
+
+  for (int i = 0; i < n_dof; ++i) {
+    for (int l = 0; l < num_quad_pnts; ++l) {
+      double JxWb = volume * jac * weight[l] * bas_val[l][i];
+      for (int j = 0; j < NDIM; ++j) {
+        if (j % 3 == 0) {
+          (*ele_vec)[i * NDIM + j] -= JxWb * 0.0e-3;
+        }
+      }
+    }
+  }
+}
+const int LinearTet::getProblemDim() { return NDIM; }
+
+tbox::Array<int> LinearTet::getNumberOfDofOnEntity() {
+  /// 取出形函数对象.
+  tbox::Pointer<ShapeFunctionManager<NDIM> > shape_manager =
+      ShapeFunctionManager<NDIM>::getManager();
+  tbox::Pointer<BaseShapeFunction<NDIM> > shape_func =
+      shape_manager->getShapeFunction("LinearTetrahedron");
+  return shape_func->getNumberOfDofOnEntity();
+}

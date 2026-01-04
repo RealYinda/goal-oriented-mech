@@ -1,0 +1,89 @@
+K 25
+svn:wc:ra_dav:version-url
+V 66
+/svn/JAUMIN/!svn/ver/1563/trunk/examples/Elastic/source/integrator
+END
+BaseIntegrator.h
+K 25
+svn:wc:ra_dav:version-url
+V 83
+/svn/JAUMIN/!svn/ver/1563/trunk/examples/Elastic/source/integrator/BaseIntegrator.h
+END
+IntegratorManager.h
+K 25
+svn:wc:ra_dav:version-url
+V 86
+/svn/JAUMIN/!svn/ver/1563/trunk/examples/Elastic/source/integrator/IntegratorManager.h
+END
+QuadratureInfo.h
+K 25
+svn:wc:ra_dav:version-url
+V 83
+/svn/JAUMIN/!svn/ver/1563/trunk/examples/Elastic/source/integrator/QuadratureInfo.h
+END
+TetrahedronIntegrator.C
+K 25
+svn:wc:ra_dav:version-url
+V 90
+/svn/JAUMIN/!svn/ver/1563/trunk/examples/Elastic/source/integrator/TetrahedronIntegrator.C
+END
+TetrahedronQuadratureInfo.h
+K 25
+svn:wc:ra_dav:version-url
+V 94
+/svn/JAUMIN/!svn/ver/1563/trunk/examples/Elastic/source/integrator/TetrahedronQuadratureInfo.h
+END
+TetrahedronCoordTran.h
+K 25
+svn:wc:ra_dav:version-url
+V 89
+/svn/JAUMIN/!svn/ver/1563/trunk/examples/Elastic/source/integrator/TetrahedronCoordTran.h
+END
+CoordinateTransform.C
+K 25
+svn:wc:ra_dav:version-url
+V 88
+/svn/JAUMIN/!svn/ver/1563/trunk/examples/Elastic/source/integrator/CoordinateTransform.C
+END
+TetrahedronIntegrator.h
+K 25
+svn:wc:ra_dav:version-url
+V 90
+/svn/JAUMIN/!svn/ver/1563/trunk/examples/Elastic/source/integrator/TetrahedronIntegrator.h
+END
+CoordinateTransform.h
+K 25
+svn:wc:ra_dav:version-url
+V 88
+/svn/JAUMIN/!svn/ver/1563/trunk/examples/Elastic/source/integrator/CoordinateTransform.h
+END
+BaseIntegrator.C
+K 25
+svn:wc:ra_dav:version-url
+V 83
+/svn/JAUMIN/!svn/ver/1563/trunk/examples/Elastic/source/integrator/BaseIntegrator.C
+END
+IntegratorManager.C
+K 25
+svn:wc:ra_dav:version-url
+V 86
+/svn/JAUMIN/!svn/ver/1563/trunk/examples/Elastic/source/integrator/IntegratorManager.C
+END
+QuadratureInfo.C
+K 25
+svn:wc:ra_dav:version-url
+V 83
+/svn/JAUMIN/!svn/ver/1563/trunk/examples/Elastic/source/integrator/QuadratureInfo.C
+END
+TetrahedronQuadratureInfo.C
+K 25
+svn:wc:ra_dav:version-url
+V 94
+/svn/JAUMIN/!svn/ver/1563/trunk/examples/Elastic/source/integrator/TetrahedronQuadratureInfo.C
+END
+TetrahedronCoordTran.C
+K 25
+svn:wc:ra_dav:version-url
+V 89
+/svn/JAUMIN/!svn/ver/1563/trunk/examples/Elastic/source/integrator/TetrahedronCoordTran.C
+END

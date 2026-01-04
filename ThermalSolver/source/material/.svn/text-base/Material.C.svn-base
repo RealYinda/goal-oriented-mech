@@ -1,0 +1,66 @@
+//
+// 文件名:     Material.C
+// 软件包:     JAUMIN
+// 版权　:     北京应用物理与计算数学研究所
+// 版本号:     $Revision: 0 $
+// 修改　:     $Date: Tue May 20 08:34:22 2014 $
+// 描述　:     线弹性材料
+// 类别　:     %Internal File% ( Don't delete this line )
+//
+
+#include "Material.h"
+/*************************************************************************
+ * 构造函数.
+ *************************************************************************/
+Material::Material(const string name) : BaseMaterial<NDIM>(name) {
+  d_young_modulus = 2100;
+  d_possion_ratio = 0.269;  // 0.25;
+  d_density = 7850;  // 0.4;
+  d_moduli.resizeArray(6);
+  for (int i = 0; i < 6; ++i) {
+    d_moduli[i].resizeArray(6);
+    for (int j = 0; j < 6; ++j) {
+      d_moduli[i][j] = 0.0;
+    }
+  }
+  computeMuduli();
+}
+
+/*************************************************************************
+ * 析构函数.
+ ************************************************************************/
+Material::~Material() {}
+
+/*************************************************************************
+ * 获取杨氏模量.
+ ************************************************************************/
+double Material::getYoungModulus() { return d_young_modulus; }
+
+/*************************************************************************
+ * 获取波松比.
+ ************************************************************************/
+double Material::getPossionRatio() { return d_possion_ratio; }
+
+/*************************************************************************
+ * 获取密度.
+ ************************************************************************/
+double Material::getDensity() { return d_density; }
+
+/*************************************************************************
+ * 获取模量矩阵.
+ ************************************************************************/
+tbox::Array<tbox::Array<double> > Material::getModuli() { return d_moduli; }
+
+/*************************************************************************
+ * 计算模量矩阵.
+ ************************************************************************/
+void Material::computeMuduli() {
+  double mu = 0.5 * d_young_modulus / (1 + d_possion_ratio);
+  double lambda = (d_young_modulus * d_possion_ratio) /
+                  ((1 + d_possion_ratio) * (1 - 2 * d_possion_ratio));
+
+  d_moduli[2][2] = d_moduli[1][1] = d_moduli[0][0] = lambda + 2.0 * mu;
+  d_moduli[1][2] = d_moduli[0][1] = d_moduli[0][2] = lambda;
+  d_moduli[2][1] = d_moduli[1][0] = d_moduli[2][0] = lambda;
+  d_moduli[5][5] = d_moduli[4][4] = d_moduli[3][3] = mu;
+}

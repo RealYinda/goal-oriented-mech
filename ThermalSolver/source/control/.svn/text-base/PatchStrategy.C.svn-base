@@ -1,0 +1,658 @@
+//
+// 文件名:     PatchStrategy.C
+// 软件包:     JAUMIN
+// 版权　:     北京应用物理与计算数学研究所
+// 版本号:     $Revision: 0 $
+// 修改　:     $Date: Tue May 20 08:26:35 2014 $
+// 描述　:     网格片策略类派生类实现.
+//
+
+#include "Pointer.h"
+#include "Array.h"
+#include "RestartManager.h"
+#include "DoubleVector.h"
+#include "CellData.h"
+#include "NodeData.h"
+#include "EdgeData.h"
+#include "NodeVariable.h"
+#include "EdgeVariable.h"
+#include "FaceVariable.h"
+#include "MPI.h"
+#include "PatchTopology.h"
+#include "PatchGeometry.h"
+#include "Patch.h"
+#include <assert.h>
+#include "CellVariable.h"
+
+#include "PatchStrategy.h"
+#include "Matrix.h"
+#include "VectorVariable.h"
+#include "VectorData.h"
+#include "CSRMatrixVariable.h"
+#include "CSRMatrixData.h"
+#include "BaseElement.h"
+#include "IntegratorManager.h"
+#include "ShapeFunctionManager.h"
+#include "MaterialManager.h"
+#include "Material.h"
+#include "BaseShapeFunction.h"
+#include "BaseIntegrator.h"
+
+/*************************************************************************
+ * 构造函数.
+ *************************************************************************/
+PatchStrategy::PatchStrategy(const string& object_name,
+                             tbox::Pointer<tbox::Database> input_db,
+                             bool register_for_restart) {
+#ifdef DEBUG_CHECK_ASSERTIONS
+  TBOX_ASSERT(!object_name.empty());
+#endif
+  d_object_name = object_name;
+  d_registered_for_restart = register_for_restart;
+  // 读取从输入文件或重启动文件读入数据.
+  bool is_from_restart = tbox::RestartManager::getManager()->isFromRestart();
+  registerModelVariable();
+  if (is_from_restart) {
+    getFromRestart(input_db);
+  } else {
+    getFromInput(input_db);
+  }
+  d_element_manager = ElementManager<NDIM>::getManager();
+  /// 设置单元.
+  d_element_manager->setElement(d_element_type, d_element_marks);
+
+  // 注册为重启动对象.
+  if (d_registered_for_restart) {
+    tbox::RestartManager::getManager()->registerRestartItem(d_object_name,
+                                                            this);
+  }
+}
+
+/*************************************************************************
+ *
+ * 构造函数.
+ *
+ ************************************************************************/
+PatchStrategy::~PatchStrategy() {
+  if (d_registered_for_restart) {
+    tbox::RestartManager::getManager()->unregisterRestartItem(d_object_name);
+  }
+}
+
+/*************************************************************************
+ *
+ * 注册变量和数据片.
+ *
+ ************************************************************************/
+void PatchStrategy::registerModelVariable() {
+  /// 取出有限元变量数据库.
+  hier::VariableDatabase<NDIM>* db =
+      hier::VariableDatabase<NDIM>::getDatabase();
+  /// 自由度信息，参数介绍：四个bool型表示点，边，面，体上是否有自由度存在
+  d_dof_info = new solv::DOFInfo<NDIM>(true, false, false, false);
+
+  /// 取出变量上下文.
+  tbox::Pointer<hier::VariableContext> current = db->getContext("CURRENT");
+
+  /// 有限元向量型变量.
+  tbox::Pointer<pdat::VectorVariable<NDIM, double> >
+      solution /**< 解向量，位移解 */
+      = new pdat::VectorVariable<NDIM, double>("elas_solution", d_dof_info);
+
+  tbox::Pointer<pdat::VectorVariable<NDIM, double> > rhs /**< 右端项 */
+      = new pdat::VectorVariable<NDIM, double>("elas_rhs", d_dof_info);
+
+  tbox::Pointer<hier::Variable<NDIM> > stress /**< 应力张量 */
+      = new pdat::CellVariable<NDIM, double>("elas_stress", 2 * NDIM);
+
+  tbox::Pointer<hier::Variable<NDIM> > plot /**< 解向量的可视化量 */
+      = new pdat::NodeVariable<NDIM, double>("plot", NDIM);
+
+  /// 有限元矩阵型变量.
+  tbox::Pointer<pdat::CSRMatrixVariable<NDIM, double> > matrix =
+      new pdat::CSRMatrixVariable<NDIM, double>("elas_matrix", d_dof_info);
+
+  /// 将变量上下文注册到变量数据库.
+  d_solution_id = db->registerVariableAndContext(solution, current, 1);
+  d_rhs_id = db->registerVariableAndContext(rhs, current, 1);
+  d_matrix_id = db->registerVariableAndContext(matrix, current, 1);
+  d_stress_id = db->registerVariableAndContext(stress, current);
+  d_plot_id = db->registerVariableAndContext(plot, current);
+}
+
+/*************************************************************************
+ *
+ *  初始化指定的积分构件.
+ *
+ *  注册待填充的数据片或待调度内存空间的数据片到积分构件.
+ ************************************************************************/
+void PatchStrategy::initializeComponent(
+    algs::IntegratorComponent<NDIM>* component) const {
+#ifdef DEBUG_CHECK_ASSERTIONS
+  TBOX_ASSERT(component);
+#endif
+  // 读取从输入文件或重启动文件读入数据.
+  const string& component_name = component->getName();
+  if (component_name == "INIT") {  // 初始化构件.
+    component->registerInitPatchData(d_stress_id);
+    component->registerInitPatchData(d_plot_id);
+    /// 将dofInfo中的数据片注册到初始化构件。
+    d_dof_info->registerToInitComponent(component);
+  } else if (component_name == "ALLOC") {  // 内存构件.
+    component->registerPatchData(d_matrix_id);
+    component->registerPatchData(d_solution_id);
+    component->registerPatchData(d_rhs_id);
+  } else if (component_name == "LOAD") {  // 数值构件，加载载荷.
+  } else if (component_name == "CONS") {  // 数值构件，加载约束.
+  } else if (component_name == "MAT") {   // 数值构件，计算矩阵。
+  } else if (component_name == "RHS") {   // 数值构件，计算右端项.
+  } else if (component_name == "DISPLACEMENT") {  // 数值构件, 更新位移.
+  } else if (component_name == "STRESS") {        // 数值构件, 计算应力.
+  } else {
+    TBOX_ERROR("\n::initializeComponent() : component "
+               << component_name << " is not matched. " << endl);
+  }
+}
+
+/*************************************************************************
+ *  初始化数据片（支持初值构件）.
+ ************************************************************************/
+void PatchStrategy::initializePatchData(hier::Patch<NDIM>& patch,
+                                        const double time,
+                                        const bool initial_time,
+                                        const string& component_name) {
+#ifdef DEBUG_CHECK_ASSERTIONS
+  TBOX_ASSERT(component_name == "INIT");
+#endif
+  NULL_USE(time); /**< 初始化中没有用到time */
+
+  if (initial_time) {
+    tbox::Pointer<pdat::NodeData<NDIM, double> > plot =
+        patch.getPatchData(d_plot_id);
+    tbox::Pointer<pdat::CellData<NDIM, double> > str =
+        patch.getPatchData(d_stress_id);
+    // 获取当前网格片的单元，结点数目.
+    int num_nodes = patch.getNumberOfNodes(1);
+    int num_local_nodes = patch.getNumberOfNodes();
+    int num_cells = patch.getNumberOfCells();
+
+    /// 获取自由度分布和映射数组的指针首地址
+    int* dis_ptr = d_dof_info->getDOFDistribution(patch);
+    /// 为分布和映射数组赋值
+    for (int i = 0; i < num_nodes; ++i) {
+      dis_ptr[i] = NDIM;
+    }
+    /// 建立映射
+    d_dof_info->buildPatchDOFMapping(patch);
+
+    /// 初始化普通数据片
+    for (int i = 0; i < num_local_nodes; ++i) {
+      for (int j = 0; j < NDIM; ++j) (*plot)(j, i) = 0;
+    }
+    for (int i = 0; i < num_cells; ++i) {
+      for (int j = 0; j < 6; ++j) (*str)(j, i) = 0.0;
+    }
+  }
+}
+
+/*************************************************************************
+ *  输出数据成员到重启动数据库.
+ ************************************************************************/
+void PatchStrategy::putToDatabase(tbox::Pointer<tbox::Database> db) {
+#ifdef DEBUG_CHECK_ASSERTIONS
+  TBOX_ASSERT(!db.isNull());
+#endif
+  d_dof_info->putToDatabase(db);
+}
+
+/*************************************************************************
+ *
+ *  设置载荷条件.
+ *
+ ************************************************************************/
+void PatchStrategy::applyLoad(hier::Patch<NDIM>& patch, const double fill_time,
+                              const double dt, const string& component_name) {
+  /// 取出本地PatchGeometry.
+  tbox::Pointer<hier::PatchGeometry<NDIM> > patch_geo =
+      patch.getPatchGeometry();
+  tbox::Pointer<pdat::VectorData<NDIM, double> > rhs_data =
+      patch.getPatchData(d_rhs_id);
+
+  int load_size = d_load_types.getSize();
+  for (int k = 0; k < load_size; ++k) {
+    // 获取指定编号和类型的集合包含的网格实体的索引。
+    if (patch.hasEntitySet(d_load_marks[k], hier::EntityUtilities::NODE)) {
+      const tbox::Array<int>& entity_idx = patch_geo->getEntityIndicesInSet(
+          d_load_marks[k], hier::EntityUtilities::NODE);
+      // 获取物理边界上的边或者面的数目.
+      int size = entity_idx.getSize();
+      /// 载荷点的y方向加载0.001N的力
+      for (int i = 0; i < size; ++i) {
+        rhs_data->getPointer()[NDIM * entity_idx[i] + 1] -= 0.001;
+        ;
+      }
+    }
+  }
+}
+
+/*************************************************************************
+ *
+ *  填充物理边界条件.
+ *
+ ************************************************************************/
+void PatchStrategy::applyConstraint(hier::Patch<NDIM>& patch,
+                                    const double fill_time, const double dt,
+                                    const string& component_name) {
+  /// 取出本地PatchGeometry.
+  tbox::Pointer<hier::PatchGeometry<NDIM> > patch_geo =
+      patch.getPatchGeometry();
+
+  int constraint_size = d_constraint_types.getSize();
+
+  tbox::Pointer<pdat::CSRMatrixData<NDIM, double> > mat_data =
+      patch.getPatchData(d_matrix_id);
+  tbox::Pointer<pdat::VectorData<NDIM, double> > vec_data =
+      patch.getPatchData(d_rhs_id);
+
+  int* dof_map = d_dof_info->getDOFMapping(patch, hier::EntityUtilities::NODE);
+
+  int* row_start = mat_data->getRowStartPointer();
+  int* col_idx = mat_data->getColumnIndicesPointer();
+  double* mat_val = mat_data->getValuePointer();
+  double* vec_val = vec_data->getPointer();
+  for (int k = 0; k < constraint_size; ++k) {
+    if (patch_geo->hasEntitySet(d_constraint_marks[k],
+                                hier::EntityUtilities::NODE)) {
+      // 获取指定编号和类型的集合包含的网格实体的索引。
+      const tbox::Array<int>& entity_idx = patch_geo->getEntityIndicesInSet(
+          d_constraint_marks[k], hier::EntityUtilities::NODE);
+      int size = entity_idx.getSize();
+      /// 对角化1法处理约束
+      for (int i = 0; i < size; ++i) {
+        for (int k = 0; k < NDIM; ++k) {
+          int index = dof_map[entity_idx[i]] + k;
+          vec_val[index] = 0.0;
+          for (int j = row_start[index]; j < row_start[index + 1]; ++j) {
+            if (col_idx[j] == index) {
+              mat_val[j] = 1.0;
+            } else {
+              mat_val[j] = 0.0;
+              (*mat_data)(col_idx[j], index) = 0.0;
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+double PatchStrategy::getPatchDt(hier::Patch<NDIM>& patch, const double time,
+                                 const bool initial_time,
+                                 const int flag_last_dt, const double last_dt,
+                                 const string& component_name) {
+  return 0.0;
+}
+
+/*************************************************************************
+ * 完成单个网格片上的数值计算（支持数值构件）.
+ ************************************************************************/
+void PatchStrategy::computeOnPatch(hier::Patch<NDIM>& patch, const double time,
+                                   const double dt, const bool initial_time,
+                                   const string& component_name) {
+  if (component_name == "MAT") {
+    buildMatrixOnPatch(patch, time, dt, component_name);
+  } else if (component_name == "RHS") {
+    buildRHSOnPatch(patch, time, dt, component_name);
+  } else if (component_name == "LOAD") {
+    applyLoad(patch, time, dt, component_name);
+  } else if (component_name == "CONS") {
+    applyConstraint(patch, time, dt, component_name);
+  } else if (component_name == "DISPLACEMENT") {
+    updateCoordinate(patch, time, dt, component_name);
+  } else if (component_name == "STRESS") {  // 数值构件, 计算应力.
+    computeStress(patch, time, dt, component_name);
+  } else {
+    TBOX_ERROR(" PatchStrategy :: component name is error! ");
+  }
+}
+
+void PatchStrategy::updateCoordinate(hier::Patch<NDIM>& patch,
+                                     const double time, const double dt,
+                                     const string& component_name) {
+  /// 取出本地PatchGeometry.
+  tbox::Pointer<hier::PatchGeometry<NDIM> > patch_geo =
+      patch.getPatchGeometry();
+  /// 取出本地Patch的结点坐标数组.
+  tbox::Pointer<pdat::NodeData<NDIM, double> > node_coord =
+      patch_geo->getNodeCoordinates();
+  tbox::Pointer<pdat::VectorData<NDIM, double> > vec_data =
+      patch.getPatchData(d_solution_id);
+
+  tbox::Pointer<pdat::NodeData<NDIM, double> > plot_data =
+      patch.getPatchData(d_plot_id);
+
+  int num_nodes = patch.getNumberOfNodes(1);
+  for (int i = 0; i < NDIM * num_nodes; ++i) {
+    node_coord->getPointer()[i] += vec_data->getPointer()[i];
+  }
+  int num_local_nodes = patch.getNumberOfNodes();
+  for (int i = 0; i < NDIM * num_local_nodes; ++i) {
+    plot_data->getPointer()[i] = vec_data->getPointer()[i];
+  }
+}
+
+void PatchStrategy::computeStress(hier::Patch<NDIM>& patch, const double time,
+                                  const double dt,
+                                  const string& component_name) {
+  /// 取出本地PatchGeometry.
+  tbox::Pointer<hier::PatchGeometry<NDIM> > patch_geo =
+      patch.getPatchGeometry();
+  /// 取出本地PatchTopology.
+  tbox::Pointer<hier::PatchTopology<NDIM> > patch_top =
+      patch.getPatchTopology();
+  /// 取出本地Patch的结点坐标数组.
+  tbox::Pointer<pdat::NodeData<NDIM, double> > node_coord =
+      patch_geo->getNodeCoordinates();
+  tbox::Pointer<pdat::VectorData<NDIM, double> > vec_data =
+      patch.getPatchData(d_solution_id);
+
+  tbox::Pointer<pdat::CellData<NDIM, double> > str_data =
+      patch.getPatchData(d_stress_id);
+
+  int* dof_map = d_dof_info->getDOFMapping(patch, hier::EntityUtilities::NODE);
+
+  /// 获取单元周围结点的索引关系.
+  tbox::Array<int> can_extent, can_indices;
+  patch_top->getCellAdjacencyNodes(can_extent, can_indices);
+
+  int num_cells = patch.getNumberOfCells();
+
+  for (int i = 0; i < num_cells; ++i) {
+    int n_vertex = can_extent[i + 1] - can_extent[i];
+    int num_dof = NDIM * n_vertex;
+
+    /**< 该单元的结点坐标及自由度映射 */
+    tbox::Array<hier::DoubleVector<NDIM> > vertex(n_vertex);
+    tbox::Array<int> node_mapping(num_dof);
+
+    for (int i1 = 0, j = can_extent[i]; i1 < n_vertex; ++i1, ++j) {
+      for (int k = 0; k < NDIM; ++k) {
+        node_mapping[NDIM * i1 + k] = dof_map[can_indices[j]] + k;
+        vertex[i1][k] = (*node_coord)(k, can_indices[j]);
+      }
+    }
+
+    /// 取出积分器对象.
+    tbox::Pointer<IntegratorManager<NDIM> > integrator_manager =
+        IntegratorManager<NDIM>::getManager();
+    tbox::Pointer<BaseIntegrator<NDIM> > integrator =
+        integrator_manager->getIntegrator("LinearTetrahedron");
+
+    /// 取出形函数对象.
+    tbox::Pointer<ShapeFunctionManager<NDIM> > shape_manager =
+        ShapeFunctionManager<NDIM>::getManager();
+    tbox::Pointer<BaseShapeFunction<NDIM> > shape_func =
+        shape_manager->getShapeFunction("LinearTetrahedron");
+
+    /// 取出材料.
+    tbox::Pointer<MaterialManager<NDIM> > material_manager =
+        MaterialManager<NDIM>::getManager();
+    tbox::Pointer<Material> material =
+        material_manager->getMaterial("LinearTetrahedron");
+
+    /// 取出自由度数目.
+    int n_dof = shape_func->getNumberOfDof();
+
+    /// 取出积分点数目.
+    int num_quad_pnts = integrator->getNumberOfQuadraturePoints();
+
+    /// 取出积分点.
+    tbox::Array<hier::DoubleVector<NDIM> > quad_pnt =
+        integrator->getQuadraturePoints(vertex);
+
+    /// 取出积分点的积分权重.
+    tbox::Array<double> weight = integrator->getQuadratureWeights();
+
+    /// 取出基函数在积分点的值和梯度值.
+    tbox::Array<tbox::Array<tbox::Array<double> > > bas_grad =
+        shape_func->gradient(vertex, quad_pnt);
+
+    /// 取出模量矩阵
+    tbox::Array<tbox::Array<double> > moduli = material->getModuli();
+    double a = moduli[0][0];
+    double b = moduli[0][1];
+    double c = moduli[3][3];
+
+    tbox::Array<double> stress(6);
+
+    /// 计算单元应力.
+    for (int i1 = 0; i1 < 6; ++i1) stress[i1] = 0.0;
+    for (int l = 0; l < num_quad_pnts; ++l) {
+      /// 该点的积分权重.
+      double w = weight[l];
+
+      /// 初始化位移在积分点的梯度值.
+      double u_grad[NDIM][NDIM];
+      for (int i1 = 0; i1 < NDIM; ++i1) {
+        for (int j1 = 0; j1 < NDIM; ++j1) {
+          u_grad[i1][j1] = 0.0;
+        }
+      }
+
+      /// 计算位移在积分点的梯度值.
+      for (int i1 = 0; i1 < n_dof; ++i1) {
+        double* tmp_val = &(vec_data->getPointer()[node_mapping[NDIM * i1]]);
+        for (int j1 = 0; j1 < NDIM; ++j1) {
+          for (int k1 = 0; k1 < NDIM; ++k1) {
+            u_grad[j1][k1] += tmp_val[j1] * bas_grad[l][i1][k1];
+          }
+        }
+      }
+
+      /// 计算单元应力.
+      stress[0] += w * (a * u_grad[0][0] + b * (u_grad[1][1] + u_grad[2][2]));
+      stress[1] += w * (a * u_grad[1][1] + b * (u_grad[0][0] + u_grad[2][2]));
+      stress[2] += w * (a * u_grad[2][2] + b * (u_grad[1][1] + u_grad[0][0]));
+      stress[3] += w * c * (u_grad[0][1] + u_grad[1][0]);
+      stress[4] += w * c * (u_grad[1][2] + u_grad[2][1]);
+      stress[5] += w * c * (u_grad[0][2] + u_grad[2][0]);
+    }
+
+    /// 将单元应力回填到应力数据片.
+    for (int j = 0; j < 6; ++j) {
+      (*str_data)(j, i) = stress[j];
+    }
+  }
+}
+
+/*************************************************************************
+ *  建立网格片上的矩阵和右端项.
+ ************************************************************************/
+void PatchStrategy::buildRHSOnPatch(hier::Patch<NDIM>& patch, const double time,
+                                    const double dt,
+                                    const string& component_name) {
+  /// 取出本地PatchGeometry.
+  tbox::Pointer<hier::PatchGeometry<NDIM> > patch_geo =
+      patch.getPatchGeometry();
+  /// 取出本地PatchTopology.
+  tbox::Pointer<hier::PatchTopology<NDIM> > patch_top =
+      patch.getPatchTopology();
+  /// 取出本地Patch的结点坐标数组.
+  tbox::Pointer<pdat::NodeData<NDIM, double> > node_coord =
+      patch_geo->getNodeCoordinates();
+  int* dof_map = d_dof_info->getDOFMapping(patch, hier::EntityUtilities::NODE);
+  tbox::Pointer<pdat::VectorData<NDIM, double> > vec_data =
+      patch.getPatchData(d_rhs_id);
+  /// 获取单元周围结点的索引关系.
+  tbox::Array<int> can_extent, can_indices;
+  patch_top->getCellAdjacencyNodes(can_extent, can_indices);
+
+  /// 取出本地Patch的单元数目.
+  int num_cells = patch.getNumberOfCells(1);
+  //  int num_nodes = patch.getNumberOfNodes(0);
+
+  for (int i = 0; i < num_cells; ++i) {
+    int n_vertex = can_extent[i + 1] - can_extent[i];
+    int n_dof = NDIM * n_vertex;
+
+    /**< 该单元的结点坐标及自由度映射 */
+    tbox::Array<hier::DoubleVector<NDIM> > vertex(n_vertex);
+    tbox::Array<int> node_mapping(n_dof);
+
+    for (int i1 = 0, j = can_extent[i]; i1 < n_vertex; ++i1, ++j) {
+      for (int k = 0; k < NDIM; ++k) {
+        node_mapping[NDIM * i1 + k] = dof_map[can_indices[j]] + k;
+        vertex[i1][k] = (*node_coord)(k, can_indices[j]);
+      }
+    }
+    /// 取出单元对象.
+    tbox::Pointer<BaseElement<NDIM> > ele =
+        d_element_manager->getElement(d_element_type[0]);
+
+    tbox::Pointer<tbox::Vector<double> > ele_vec = new tbox::Vector<double>();
+    ele_vec->resize(n_dof);
+    for (int i = 0; i < n_dof; ++i) {
+      (*ele_vec)[i] = 0.0;
+    }
+
+    /// 计算单元右端项.
+    ele->buildElementRHS(vertex, dt, time, ele_vec);
+    for (int i = 0; i < n_dof; ++i)
+      vec_data->addVectorValue(node_mapping[i], (*ele_vec)[i]);
+  }
+}
+
+/*************************************************************************
+ *  建立网格片上的矩阵和右端项.
+ ************************************************************************/
+void PatchStrategy::buildMatrixOnPatch(hier::Patch<NDIM>& patch,
+                                       const double time, const double dt,
+                                       const string& component_name) {
+  /// 取出本地PatchGeometry.
+  tbox::Pointer<hier::PatchGeometry<NDIM> > patch_geo =
+      patch.getPatchGeometry();
+  /// 取出本地PatchTopology.
+  tbox::Pointer<hier::PatchTopology<NDIM> > patch_top =
+      patch.getPatchTopology();
+  /// 取出本地Patch的结点坐标数组.
+  tbox::Pointer<pdat::NodeData<NDIM, double> > node_coord =
+      patch_geo->getNodeCoordinates();
+
+  /// 获取单元周围结点的索引关系.
+  tbox::Array<int> can_extent, can_indices;
+  patch_top->getCellAdjacencyNodes(can_extent, can_indices);
+
+  /// 取出Patch的单元数目.
+  int num_cells = patch.getNumberOfCells(1);
+  int* dof_map = d_dof_info->getDOFMapping(patch, hier::EntityUtilities::NODE);
+  tbox::Pointer<pdat::CSRMatrixData<NDIM, double> > mat_data =
+      patch.getPatchData(d_matrix_id);
+
+  for (int i = 0; i < num_cells; ++i) {
+    int n_vertex = can_extent[i + 1] - can_extent[i];
+    int n_dof = NDIM * n_vertex;
+    tbox::Array<hier::DoubleVector<NDIM> > vertex(n_vertex);
+    tbox::Array<int> node_mapping(n_dof);
+
+    for (int i1 = 0, j = can_extent[i]; i1 < n_vertex; ++i1, ++j) {
+      for (int k = 0; k < NDIM; ++k) {
+        node_mapping[NDIM * i1 + k] = dof_map[can_indices[j]] + k;
+        vertex[i1][k] = (*node_coord)(k, can_indices[j]);
+      }
+    }
+
+    tbox::Pointer<tbox::Matrix<double> > ele_mat = new tbox::Matrix<double>();
+    ele_mat->resize(n_dof, n_dof);
+    for (int i1 = 0; i1 < n_dof; ++i1) {
+      for (int j = 0; j < n_dof; ++j) {
+        (*ele_mat)(i1, j) = 0.0;
+      }
+    }
+    /// 取出单元对象.
+    tbox::Pointer<BaseElement<NDIM> > ele =
+        d_element_manager->getElement(d_element_type[0]);
+    ele->buildStiffElementMatrix(vertex, dt, time, ele_mat);
+
+    /// 累加矩阵
+    for (int i1 = 0; i1 < n_dof; ++i1) {
+      for (int j = 0; j < n_dof; ++j) {
+        mat_data->addMatrixValue(node_mapping[i1], node_mapping[j],
+                                 (*ele_mat)(i1, j));
+      }
+    }
+  }
+  mat_data->assemble();
+}
+
+void PatchStrategy::registerPlotData(
+    tbox::Pointer<appu::JaVisDataWriter<NDIM> > javis_writer) {
+  javis_writer->registerPlotQuantity("plot", "VECTOR", d_plot_id);
+  javis_writer->registerPlotQuantity("stress", "COMPOSITE", d_stress_id);
+}
+
+/*************************************************************************
+ *  从输入数据库读入数据.
+ ************************************************************************/
+void PatchStrategy::getFromInput(tbox::Pointer<tbox::Database> db) {
+#ifdef DEBUG_CHECK_ASSERTIONS
+  TBOX_ASSERT(!db.isNull());
+#endif
+
+  if (db->keyExists("element_type")) {
+    d_element_type = db->getStringArray("element_type");
+  } else {
+    TBOX_ERROR(d_object_name << ": "
+                             << " No key `element_type' found in data."
+                             << endl);
+  }
+
+  if (db->keyExists("element_marks")) {
+    d_element_marks = db->getIntegerArray("element_marks");
+  } else {
+    TBOX_ERROR(d_object_name << ": "
+                             << " No key `element_marks' found in data."
+                             << endl);
+  }
+
+  if (db->keyExists("constraint_types")) {
+    d_constraint_types = db->getStringArray("constraint_types");
+  } else {
+    TBOX_ERROR(d_object_name << ": "
+                             << " No key `constraint_types' found in data."
+                             << endl);
+  }
+
+  if (db->keyExists("constraint_marks")) {
+    d_constraint_marks = db->getIntegerArray("constraint_marks");
+  } else {
+    TBOX_ERROR(d_object_name << ": "
+                             << " No key `constraint_marks' found in data."
+                             << endl);
+  }
+
+  if (db->keyExists("load_types")) {
+    d_load_types = db->getStringArray("load_types");
+  } else {
+    TBOX_ERROR(d_object_name << ": "
+                             << " No key `load_types' found in data." << endl);
+  }
+
+  if (db->keyExists("load_marks")) {
+    d_load_marks = db->getIntegerArray("load_marks");
+  } else {
+    TBOX_ERROR(d_object_name << ": "
+                             << " No key `load_marks' found in data." << endl);
+  }
+}
+
+/*************************************************************************
+ *  从重启动数据库读取数据.
+ ************************************************************************/
+void PatchStrategy::getFromRestart(tbox::Pointer<tbox::Database> db) {
+  getFromInput(db);
+  tbox::Pointer<tbox::Database> root_db =
+      tbox::RestartManager::getManager()->getRootDatabase();
+
+  tbox::Pointer<tbox::Database> sub_db = root_db->getDatabase(d_object_name);
+  d_dof_info->getFromDatabase(sub_db);
+}
