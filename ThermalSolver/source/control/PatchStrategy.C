@@ -3449,5 +3449,24 @@ void PatchStrategy::QueryFieldAtPoints(hier::Patch<NDIM>& patch, const string& i
         ofstream outfile;
         outfile.open(ss.str().c_str(), ios::out);
         outfile << std::fixed << std::setprecision(12);
+
+        string line;
+        while(getline(infile, line)){
+            stringstream buf(line);
+            double q_num,q_x, q_y, q_z;
+            // 假设输入文件格式为: x y z
+            if(!(buf >> q_num >> q_x >> q_y >> q_z)) continue;
+            double query_coord[3] = {q_x, q_y, q_z};
+            CGAL_K::Point_3 query_pt(q_x, q_y, q_z);
+            // 7. 使用 Tree 查找包含该点的所有四面体（候选）
+            // 这里使用 any_intersected_primitive 或者 all_intersected_primitives
+            // 注意：Point 与 Tetrahedron 的 intersection 在 CGAL Kernel 中是支持的
+            std::vector<Tet_Tree::Primitive_id> candidates;
+            tree.all_intersected_primitives(query_pt, std::back_inserter(candidates));
+            bool found = false;
+            for(size_t k = 0; k < candidates.size(); ++k){
+                int cell_id = candidates[k]->id;
+            }
+        }
     }
 }
