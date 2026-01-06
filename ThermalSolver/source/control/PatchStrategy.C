@@ -3430,43 +3430,80 @@ void PatchStrategy::QueryFieldAtPoints(hier::Patch<NDIM>& patch, const string& i
         tetrahedrons.push_back(J_tetrahedron(
                                    &Point_on_patch[n0], &Point_on_patch[n1], &Point_on_patch[n2], &Point_on_patch[n3], i
                                    ));
-        // 5. 构建 AABB Tree
-        Tet_Tree tree(tetrahedrons.begin(), tetrahedrons.end());
-        tree.build(); // 用于加速查找
-
-        // 6. 读取输入文件并查询
-        ifstream infile;
-        infile.open(input_filename.c_str(), ios::in);
-        if (!infile) {
-            TBOX_ERROR("Query input file not found: " << input_filename << endl);
-        }
 
 
+    }
 
-        // 输出文件
-        stringstream ss;
-        ss << "Query_Result_Patch_" << patch.getIndex() << ".dat";
-        ofstream outfile;
-        outfile.open(ss.str().c_str(), ios::out);
-        outfile << std::fixed << std::setprecision(12);
 
-        string line;
-        while(getline(infile, line)){
-            stringstream buf(line);
-            double q_num,q_x, q_y, q_z;
-            // 假设输入文件格式为: x y z
-            if(!(buf >> q_num >> q_x >> q_y >> q_z)) continue;
-            double query_coord[3] = {q_x, q_y, q_z};
-            CGAL_K::Point_3 query_pt(q_x, q_y, q_z);
-            // 7. 使用 Tree 查找包含该点的所有四面体（候选）
-            // 这里使用 any_intersected_primitive 或者 all_intersected_primitives
-            // 注意：Point 与 Tetrahedron 的 intersection 在 CGAL Kernel 中是支持的
-            std::vector<Tet_Tree::Primitive_id> candidates;
-            tree.all_intersected_primitives(query_pt, std::back_inserter(candidates));
-            bool found = false;
-            for(size_t k = 0; k < candidates.size(); ++k){
-                int cell_id = candidates[k]->id;
+    // 5. 构建 AABB Tree
+    Tet_Tree tree(tetrahedrons.begin(), tetrahedrons.end());
+    tree.build(); // 用于加速查找
+
+    // 6. 读取输入文件并查询
+    ifstream infile;
+    infile.open(input_filename.c_str(), ios::in);
+    if (!infile) {
+        TBOX_ERROR("Query input file not found: " << input_filename << endl);
+    }
+
+
+
+    // 输出文件
+    stringstream ss;
+    ss << "Query_Result_Patch_" << patch.getIndex() << ".dat";
+    ofstream outfile;
+    outfile.open(ss.str().c_str(), ios::out);
+    outfile << std::fixed << std::setprecision(12);
+
+    string line;
+    while(getline(infile, line)){
+        stringstream buf(line);
+        double q_num,q_x, q_y, q_z;
+        // 假设输入文件格式为: x y z
+        if(!(buf >> q_num >> q_x >> q_y >> q_z)) continue;
+        double query_coord[3] = {q_x, q_y, q_z};
+        CGAL_K::Point_3 query_pt(q_x, q_y, q_z);
+        // 7. 使用 Tree 查找包含该点的所有四面体（候选）
+        // 这里使用 any_intersected_primitive 或者 all_intersected_primitives
+        // 注意：Point 与 Tetrahedron 的 intersection 在 CGAL Kernel 中是支持的
+        std::vector<Tet_Tree::Primitive_id> candidates;
+        tree.all_intersected_primitives(query_pt, std::back_inserter(candidates));
+        bool found = false;
+        for(size_t k = 0; k < candidates.size(); ++k){
+            int cell_id = candidates[k]->id;
+            // 准备 PatchPointWeightInCell 需要的 localnodecoord
+            double local_coords[4][3];
+            int node_indices[4];
+
+            for(int n = 0; n < 4; ++n) {
+                node_indices[n] = cell_node_idx[cell_node_ext[cell_id] + n];
+                local_coords[n][0] = (*node_coord)(0, node_indices[n]);
+                local_coords[n][1] = (*node_coord)(1, node_indices[n]);
+                local_coords[n][2] = (*node_coord)(2, node_indices[n]);
+            }
+            double weights[NDIM + 1]; // 存储重心坐标
+            // 调用你代码中已有的函数进行精确判断
+            bool is_inside = PatchPointWeightInCell(query_coord, &local_coords[0][0], weights);
+            if (is_inside){
+                double interp_value = 0.0;
+                for(int n = 0; n < 4; ++n) {
+                    // 获取节点上的值，这里假设是 th_Told_id
+                    double node_val = (*T_data)(0, node_indices[n]);
+                    interp_value += node_val * weights[n];
+                }
+                // 输出：坐标 + 单元ID + 插值结果
+                outfile << q_num << q_x << "\t" << q_y << "\t" << q_z << "\t"
+                        << cell_id << "\t" << interp_value << endl;
+
+                found = true;
+                break;
             }
         }
+
+        // 可选：如果没找到（该点不在本Patch内），可以输出标识或跳过
+        // if (!found) { ... }
+
     }
+    infile.close();
+    outfile.close();
 }
