@@ -396,6 +396,7 @@ void PatchStrategy::initializeComponent(
   } else if (component_name == "POSTPROCESS") {        // 数值构件, 计算应力.
       component->registerCommunicationPatchData(d_improved_coefficient_id, d_improved_coefficient_id);
   }else if (component_name == "DATAEXPLORE") {        // 数值构件, 计算应力.
+  }else if (component_name == "THERMALPOST") {        // 数值构件, 计算应力.
   }  else if (component_name == "Dt") {        // update #6 @10  步长构件,
 	//update #8 @5 添加热求解相关数值构件
   } else if (component_name == "TH_LOAD") {  // 数值构件，加载热源等.
@@ -3368,6 +3369,12 @@ void PatchStrategy::getFromInput(tbox::Pointer<tbox::Database> db) {
     TBOX_ERROR(d_object_name << ": "
                              << " No key `improved_stress' found in data." << endl);
   }
+  if (db->keyExists("query_file_name")) {
+    d_file_name_query = db->getString("query_file_name");
+  } else {
+    TBOX_ERROR(d_object_name << ": "
+                             << " No key `query_file_name' found in data." << endl);
+  }
 }
 
 /*************************************************************************
@@ -3380,6 +3387,13 @@ void PatchStrategy::getFromRestart(tbox::Pointer<tbox::Database> db) {
 
   tbox::Pointer<tbox::Database> sub_db = root_db->getDatabase(d_object_name);
   d_dof_info->getFromDatabase(sub_db);
+}
+void PatchStrategy::ThermalPostprocess(hier::Patch<NDIM> &patch, const double time,
+                                 const double dt,
+                                 const string &component_name){
+    /// 完成实现的query功能
+    QueryFieldAtPoints(patch,d_file_name_query);
+
 }
 
 /**
@@ -3450,7 +3464,7 @@ void PatchStrategy::QueryFieldAtPoints(hier::Patch<NDIM>& patch, const string& i
 
     // 输出文件
     stringstream ss;
-    ss << "Query_Result_Patch_" << patch.getIndex() << ".dat";
+    ss << "Thermal_Data_On_Patch_" << patch.getIndex() << ".dat";
     ofstream outfile;
     outfile.open(ss.str().c_str(), ios::out);
     outfile << std::fixed << std::setprecision(12);

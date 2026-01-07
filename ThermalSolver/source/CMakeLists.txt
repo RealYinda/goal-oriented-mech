@@ -18,6 +18,7 @@ set(JAUMIN_CREL   ${CREL})
 set(JPSOL_NDIM    ${NDIM})
 set(JPSOL_CREL    ${CREL})
 
+
 # 设置 CGAL 的安装路径
 set(CGAL_DIR /home/Dev/CGAL/cgal-releases-CGAL-4.13)
 find_package(CGAL REQUIRED)

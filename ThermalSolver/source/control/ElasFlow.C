@@ -83,6 +83,12 @@ void ElasFlow::initializeLevelIntegrator(
   d_num_intc_data_explorer = new algs::NumericalIntegratorComponent<NDIM>(
               "DATAEXPLORE", d_patch_strategy, manager);
 
+
+  /// 数值构件：做和温度场相关的后处理
+  d_num_intc_thermal_post = new algs::NumericalIntegratorComponent<NDIM>(
+              "THERMALPOST", d_patch_strategy, manager);
+
+
   // 数值构件: 计算矩阵.
   d_num_intc_mat = new algs::NumericalIntegratorComponent<NDIM>(
       "MAT", d_patch_strategy, manager);

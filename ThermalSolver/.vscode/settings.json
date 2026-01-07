@@ -1,0 +1,19 @@
+{
+    // 1. 明确指定源码目录和构建目录
+    "cmake.sourceDirectory": "${workspaceFolder}/source",
+    "cmake.buildDirectory": "${workspaceFolder}/build",
+
+    // 2. 兼容老版本 CMake (3.9.x) 的核心配置
+    "cmake.useCMakeServer": false,
+    "cmake.generator": "Unix Makefiles",
+    "cmake.configureOnOpen": false,
+    "cmake.cmakePath": "cmake",
+
+    // 3. 禁用部分可能引起冲突的自动化功能
+    "C_Cpp.default.configurationProvider": "ms-vscode.cmake-tools",
+    "C_Cpp.errorSquiggles": "Enabled",
+    "files.associations": {
+        "PatchStrategy.C": "cpp",
+        "main.C": "cpp"
+    }
+}

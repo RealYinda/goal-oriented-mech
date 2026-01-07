@@ -164,6 +164,7 @@ private:
   tbox::Pointer<algs::NumericalIntegratorComponent<NDIM> > d_num_intc_postprocess;
   /*!@brief 数值构件: 数据采集并作定量分析 */
   tbox::Pointer<algs::NumericalIntegratorComponent<NDIM> > d_num_intc_data_explorer;
+  tbox::Pointer<algs::NumericalIntegratorComponent<NDIM> > d_num_intc_thermal_post;
   /*!@brief 数值构件: 加载约束 */
   tbox::Pointer<algs::NumericalIntegratorComponent<NDIM> > d_num_intc_cons;
 

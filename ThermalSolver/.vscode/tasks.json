@@ -1,0 +1,45 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "1. CMake Configure (重新配置)",
+            "type": "shell",
+            "command": "cmake",
+            "args": [
+                "-DCMAKE_BUILD_TYPE=Debug",
+                "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON", // 必须有这一行，生成代码地图
+                "../source"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}/build" // 在 build 目录下执行
+            },
+            "group": "build",
+            "problemMatcher": []
+        },
+        {
+            "label": "2. Make Build (开始编译)",
+            "type": "shell",
+            "command": "make",
+            "args": [
+                "-j4"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}/build"
+            },
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "problemMatcher": ["$gcc"]
+        },
+        {
+            "label": "3. Clean All (清理重置)",
+            "type": "shell",
+            "command": "rm -rf * && echo 'Cleaned build directory'",
+            "options": {
+                "cwd": "${workspaceFolder}/build"
+            },
+            "problemMatcher": []
+        }
+    ]
+}

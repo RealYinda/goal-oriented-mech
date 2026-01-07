@@ -414,6 +414,16 @@ public:
     void Dataexplorer(hier::Patch<NDIM>& patch, const double time,
                         const double dt, const string& component_name);
 
+    /**
+     * @brief ThermalPostprocess: 热问题的后处理
+     * @param patch
+     * @param time
+     * @param dt
+     * @param component_name
+     */
+    void ThermalPostprocess(hier::Patch<NDIM>& patch, const double time,
+                        const double dt, const string& component_name);
+
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
     /**
@@ -657,6 +667,9 @@ private:
 
   /// 有限元计算相关的管理器(单元, 积分, 形函数, 材料, 约束, 载荷).
   tbox::Pointer<ElementManager<NDIM> > d_element_manager;
+
+  /// 需要读取的坐标点信息
+  string d_file_name_query;
 
   /// 输入数据库指针.
   tbox::Pointer<tbox::Database> d_input_db;
