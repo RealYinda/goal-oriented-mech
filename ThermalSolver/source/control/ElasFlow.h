@@ -35,7 +35,7 @@ using namespace JAUMIN;
  */
 class ElasFlow : public algs::TimeIntegratorLevelStrategy<NDIM>
 
-                 {
+{
 public:
   /**
    * @brief 构造函数.
@@ -156,7 +156,7 @@ private:
 
   /*!@brief 数值构件: 更新位移 */
   tbox::Pointer<algs::NumericalIntegratorComponent<NDIM> >
-      d_num_intc_displacement;
+  d_num_intc_displacement;
 
   /*!@brief 数值构件: 更新恢复应力 */
   tbox::Pointer<algs::NumericalIntegratorComponent<NDIM> > d_num_intc_recovery;

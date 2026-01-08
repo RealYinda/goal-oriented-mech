@@ -50,7 +50,7 @@
 
 using namespace JAUMIN;
 class PatchStrategy : public algs::StandardComponentPatchStrategy<NDIM>,
-                      tbox::Serializable {
+    tbox::Serializable {
 public:
   /*! @brief 构造函数.
    * @param object_name          输入参数, 字符串, 表示对象名称.
@@ -90,7 +90,7 @@ public:
                            const bool initial_time,
                            const string& component_name);
 
-   /*
+  /*
    * @note
    *  vector是输入输出参数: 输入是已遍历网格片的归约结果,
    *  输出是输入值和当前网格片计算结果的归约值.
@@ -259,7 +259,7 @@ public:
    *
    */
   void buildTh_MatrixOnPatch(hier::Patch<NDIM>& patch, const double time,
-                          const double dt, const string& component_name);
+                             const double dt, const string& component_name);
 
   /*!
    * @brief 支撑指定名称的数值构件, 在单个网格片上完成右端项组装.
@@ -271,7 +271,7 @@ public:
    *
    */
   void buildTh_RHSOnPatch(hier::Patch<NDIM>& patch, const double time,
-                       const double dt, const string& component_name);
+                          const double dt, const string& component_name);
 
   /*!
    * @brief 在单个网格片上设置温度载荷：热源及第二类边界.
@@ -283,7 +283,7 @@ public:
    *
    */
   void applyTh_Load(hier::Patch<NDIM>& patch, const double time, const double dt,
-                 const string& component_name);
+                    const string& component_name);
 
   /*!
    * @brief 在单个网格片上设置温度约束.
@@ -295,7 +295,7 @@ public:
    *
    */
   void applyTh_Constraint(hier::Patch<NDIM>& patch, const double time,
-                       const double dt, const string& component_name);
+                          const double dt, const string& component_name);
 
   /*!
    * @brief 完成热计算后处理
@@ -306,12 +306,12 @@ public:
    *
    */
   void Thermal_PostProcesing(hier::Patch<NDIM>& patch, const double time,
-                      const double dt, const string& component_name);
+                             const double dt, const string& component_name);
 
   void Thermal_max(double* max_T, int len, hier::Patch<NDIM>& patch, const double time,
-                      const double dt, const string& component_name);
+                   const double dt, const string& component_name);
   void Stress_max(double* vector, int len, hier::Patch<NDIM>& patch, const double time,
-                      const double dt, const string& component_name);
+                  const double dt, const string& component_name);
 
   /**
    * @brief 获取热求解矩阵id
@@ -338,7 +338,7 @@ public:
 
   ///////////////////////////////////////////////update #9///////////////////////////////////////////////////
   //电计算相关函数
-    /*!
+  /*!
      * @brief 支撑指定名称的数值构件, 在单个网格片上完成矩阵组装.
      *
      * @param patch          输入参数, 网格片类, 表示网格片.
@@ -347,10 +347,10 @@ public:
      * @param component_name 输入参数, 字符串, 表示数值构件的名称.
      *
      */
-    void buildE_MatrixOnPatch(hier::Patch<NDIM>& patch, const double time,
+  void buildE_MatrixOnPatch(hier::Patch<NDIM>& patch, const double time,
                             const double dt, const string& component_name);
 
-    /*!
+  /*!
      * @brief 支撑指定名称的数值构件, 在单个网格片上完成右端项组装.
      *
      * @param patch          输入参数, 网格片类, 表示网格片.
@@ -359,10 +359,10 @@ public:
      * @param component_name 输入参数, 字符串, 表示数值构件的名称.
      *
      */
-    void buildE_RHSOnPatch(hier::Patch<NDIM>& patch, const double time,
+  void buildE_RHSOnPatch(hier::Patch<NDIM>& patch, const double time,
                          const double dt, const string& component_name);
 
-    /*!
+  /*!
      * @brief 在单个网格片上设置电压约束.
      *
      * @param patch          输入参数, 网格片类, 表示网格片.
@@ -371,10 +371,10 @@ public:
      * @param component_name 输入参数, 字符串, 表示数值构件的名称.
      *
      */
-    void applyE_Constraint(hier::Patch<NDIM>& patch, const double time,
+  void applyE_Constraint(hier::Patch<NDIM>& patch, const double time,
                          const double dt, const string& component_name);
 
-    /*!
+  /*!
      * @brief 完成电计算后处理
      * @param patch          输入参数, 网格片类, 表示网格片.
      * @param time           输入参数, 双精度浮点型, 表示当前时刻.
@@ -382,72 +382,72 @@ public:
      * @param component_name 输入参数, 字符串, 表示数值构件的名称.
      *
      */
-    void Electric_PostProcesing(hier::Patch<NDIM>& patch, const double time,
-                        const double dt, const string& component_name);
+  void Electric_PostProcesing(hier::Patch<NDIM>& patch, const double time,
+                              const double dt, const string& component_name);
 
-    /**
+  /**
      * @brief StressRecovery: 完成应力在体上的恢复
      * @param patch
      * @param time
      * @param dt
      * @param component_name
      */
-    void StressRecovery(hier::Patch<NDIM>& patch, const double time,
-                        const double dt, const string& component_name);
-    /**
+  void StressRecovery(hier::Patch<NDIM>& patch, const double time,
+                      const double dt, const string& component_name);
+  /**
      * @brief PostprocessStress: 完成恢复应力的后处理
      * @param patch
      * @param time
      * @param dt
      * @param component_name
      */
-    void PostprocessStress(hier::Patch<NDIM>& patch, const double time,
-                        const double dt, const string& component_name);
+  void PostprocessStress(hier::Patch<NDIM>& patch, const double time,
+                         const double dt, const string& component_name);
 
-    /**
+  /**
      * @brief Dataexplorer: 数据处理
      * @param patch
      * @param time
      * @param dt
      * @param component_name
      */
-    void Dataexplorer(hier::Patch<NDIM>& patch, const double time,
-                        const double dt, const string& component_name);
+  void Dataexplorer(hier::Patch<NDIM>& patch, const double time,
+                    const double dt, const string& component_name);
 
-    /**
+  /**
      * @brief ThermalPostprocess: 热问题的后处理
      * @param patch
      * @param time
      * @param dt
      * @param component_name
      */
-    void ThermalPostprocess(hier::Patch<NDIM>& patch, const double time,
-                        const double dt, const string& component_name);
+  void ThermalPostprocess(hier::Patch<NDIM>& patch, const double time,
+                          const double dt, const string& component_name);
 
-    /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-    /**
+  /**
      * @brief 获取热求解矩阵id
      *
      * @return 整型，热求解矩阵id
      */
-    int getE_MatrixID() { return E_matrix_id; }
+  int getE_MatrixID() { return E_matrix_id; }
 
-    /**
+  /**
      * @brief 获取热求解向量id
      *
      * @return 整型，热求解向量id
      */
-    int getE_RHSID() { return E_rhs_id; }
+  int getE_RHSID() { return E_rhs_id; }
 
-    /**
+  /**
      * @brief 获取温度解向量id
      *
      * @return 整型，温度解向量id
      */
-    int getE_SolutionID() { return E_solution_id; }
+  int getE_SolutionID() { return E_solution_id; }
 
-    /////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  /////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
   /**
@@ -462,74 +462,74 @@ public:
   typedef CGAL::Simple_cartesian<double> CGAL_K;
   // custom point type
   struct J_point {
-      double m_x;
-      double m_y;
-      double m_z;
+    double m_x;
+    double m_y;
+    double m_z;
 
-      J_point(const double x,
-              const double y,
-              const double z)
-          : m_x(x), m_y(y), m_z(z) {}
+    J_point(const double x,
+            const double y,
+            const double z)
+      : m_x(x), m_y(y), m_z(z) {}
   };
   struct J_triangle {
-      J_point *m_pa;
-      J_point *m_pb;
-      J_point *m_pc;
-      int id;
+    J_point *m_pa;
+    J_point *m_pb;
+    J_point *m_pc;
+    int id;
 
-      J_triangle(J_point *pa,
-                 J_point *pb,
-                 J_point *pc,
-                 int id_in)
-          : m_pa(pa), m_pb(pb), m_pc(pc), id(id_in) {}
+    J_triangle(J_point *pa,
+               J_point *pb,
+               J_point *pc,
+               int id_in)
+      : m_pa(pa), m_pb(pb), m_pc(pc), id(id_in) {}
   };
   /// 迭代器，存储J_三角形的原型
   typedef std::vector<J_triangle>::const_iterator Iterator;
   struct J_triangle_primitive {
   public:
 
-      // this is the type of data that the queries returns. For this example
-      // we imagine that, for some reasons, we do not want to store the iterators
-      // of the vector, but raw pointers. This is to show that the Id type
-      // does not have to be the same as the one of the input parameter of the
-      // constructor.
-      typedef const J_triangle* Id;
+    // this is the type of data that the queries returns. For this example
+    // we imagine that, for some reasons, we do not want to store the iterators
+    // of the vector, but raw pointers. This is to show that the Id type
+    // does not have to be the same as the one of the input parameter of the
+    // constructor.
+    typedef const J_triangle* Id;
 
-      // CGAL types returned
-      typedef CGAL_K::Point_3    Point; // CGAL 3D point type
-      typedef CGAL_K::Triangle_3 Datum; // CGAL 3D triangle type
+    // CGAL types returned
+    typedef CGAL_K::Point_3    Point; // CGAL 3D point type
+    typedef CGAL_K::Triangle_3 Datum; // CGAL 3D triangle type
 
   private:
-      Id m_pt; // this is what the AABB tree stores internally
+    Id m_pt; // this is what the AABB tree stores internally
 
   public:
-      J_triangle_primitive() {} // default constructor needed
+    J_triangle_primitive() {} // default constructor needed
 
-      // the following constructor is the one that receives the iterators from the
-      // iterator range given as input to the AABB_tree
-      J_triangle_primitive(Iterator it)
-          : m_pt(&(*it)) {}
+    // the following constructor is the one that receives the iterators from the
+    // iterator range given as input to the AABB_tree
+    J_triangle_primitive(Iterator it)
+      : m_pt(&(*it)) {}
 
-      const Id& id() const { return m_pt; }
+    const Id& id() const { return m_pt; }
 
-      // utility function to convert a custom
-      // point type to CGAL point type.
-      Point convert(const J_point *p) const
-      {
-          return Point(p->m_x,p->m_y,p->m_z);
-      }
+    // utility function to convert a custom
+    // point type to CGAL point type.
+    Point convert(const J_point *p) const
+    {
+      return Point(p->m_x,p->m_y,p->m_z);
+    }
 
-      // on the fly conversion from the internal data to the CGAL types
-      Datum datum() const
-      {
-          return Datum(convert(m_pt->m_pa),
-                       convert(m_pt->m_pb),
-                       convert(m_pt->m_pc));
-      }
+    // on the fly conversion from the internal data to the CGAL types
+    Datum datum() const
+    {
+      return Datum(convert(m_pt->m_pa),
+                   convert(m_pt->m_pb),
+                   convert(m_pt->m_pc));
+    }
 
-      // returns a reference point which must be on the primitive
-      Point reference_point() const
-      { return convert(m_pt->m_pa); }
+    // returns a reference point which must be on the primitive
+    Point reference_point() const
+    { return convert(m_pt->m_pa); }
   };
   typedef CGAL::AABB_traits<CGAL_K, J_triangle_primitive> J_AABB_traits;
   typedef CGAL::AABB_tree<J_AABB_traits> Tree;
@@ -538,42 +538,42 @@ public:
   ///  Yin-Da Wang
   ///  定义四面体结构，存储四个顶点指针和单元ID
   struct J_tetrahedron {
-      J_point *m_p0;
-      J_point *m_p1;
-      J_point *m_p2;
-      J_point *m_p3;
-      int id; // 单元在Patch上的编号
+    J_point *m_p0;
+    J_point *m_p1;
+    J_point *m_p2;
+    J_point *m_p3;
+    int id; // 单元在Patch上的编号
 
-      J_tetrahedron(J_point *p0, J_point *p1, J_point *p2, J_point *p3, int id_in)
-          : m_p0(p0), m_p1(p1), m_p2(p2), m_p3(p3), id(id_in) {}
+    J_tetrahedron(J_point *p0, J_point *p1, J_point *p2, J_point *p3, int id_in)
+      : m_p0(p0), m_p1(p1), m_p2(p2), m_p3(p3), id(id_in) {}
   };
   /// 定义四面体图元，用于 AABB Tree
   struct J_tetrahedron_primitive{
   public:
-      typedef const J_tetrahedron* Id;
-      typedef CGAL_K::Point_3    Point;
-      typedef CGAL_K::Tetrahedron_3 Datum;
+    typedef const J_tetrahedron* Id;
+    typedef CGAL_K::Point_3    Point;
+    typedef CGAL_K::Tetrahedron_3 Datum;
   private:
-      Id m_pt;
+    Id m_pt;
   public:
-      J_tetrahedron_primitive() {}
-      J_tetrahedron_primitive(std::vector<J_tetrahedron>::const_iterator it) : m_pt(&(*it)) {}
+    J_tetrahedron_primitive() {}
+    J_tetrahedron_primitive(std::vector<J_tetrahedron>::const_iterator it) : m_pt(&(*it)) {}
 
-      const Id& id() const { return m_pt; }
+    const Id& id() const { return m_pt; }
 
-      Point convert(const J_point *p) const {
-          return Point(p->m_x, p->m_y, p->m_z);
-      }
-      // 返回 CGAL 的四面体对象，用于构建包围盒
-      Datum datum() const {
-          return Datum(convert(m_pt->m_p0),
-                       convert(m_pt->m_p1),
-                       convert(m_pt->m_p2),
-                       convert(m_pt->m_p3));
-      }
+    Point convert(const J_point *p) const {
+      return Point(p->m_x, p->m_y, p->m_z);
+    }
+    // 返回 CGAL 的四面体对象，用于构建包围盒
+    Datum datum() const {
+      return Datum(convert(m_pt->m_p0),
+                   convert(m_pt->m_p1),
+                   convert(m_pt->m_p2),
+                   convert(m_pt->m_p3));
+    }
 
-      // 参考点
-      Point reference_point() const { return convert(m_pt->m_p0); }
+    // 参考点
+    Point reference_point() const { return convert(m_pt->m_p0); }
   };
 
   ///  定义针对四面体的 Tree 类型
@@ -587,55 +587,55 @@ public:
   /// 网格片上的CGAL类点对应的vector
   std::vector< J_point > Point_on_patch;
   bool PatchPointWeightInCell(const double* pointcoord,
-                         double* localnodecoord, double* weight){
-      tbox::Matrix<double> CellMat(NDIM+1);
-      double candidate_weight[NDIM+1];
-      /// coordinfo 应当是4行3列，在矩阵求解时是3行四列转置排列
-      double (*coord_info)[NDIM] = (double(*)[NDIM])localnodecoord;
-//      /// Test
-//      double tmpdata[4][3];
-//      for(int row = 0; row < 4; row ++){
-//          for(int col = 0; col < 3; col ++){
-//              tmpdata[row][col] = (coord_info)[row][col] ;
-//          }
-//      }
-      for(int row =0; row < NDIM; row++){
-          for(int col = 0; col < NDIM+1; col ++){
-              (CellMat)(row, col) = coord_info[col][row];
-          }
+                              double* localnodecoord, double* weight){
+    tbox::Matrix<double> CellMat(NDIM+1);
+    double candidate_weight[NDIM+1];
+    /// coordinfo 应当是4行3列，在矩阵求解时是3行四列转置排列
+    double (*coord_info)[NDIM] = (double(*)[NDIM])localnodecoord;
+    //      /// Test
+    //      double tmpdata[4][3];
+    //      for(int row = 0; row < 4; row ++){
+    //          for(int col = 0; col < 3; col ++){
+    //              tmpdata[row][col] = (coord_info)[row][col] ;
+    //          }
+    //      }
+    for(int row =0; row < NDIM; row++){
+      for(int col = 0; col < NDIM+1; col ++){
+        (CellMat)(row, col) = coord_info[col][row];
       }
-      (CellMat)(NDIM, 0) = 1;(CellMat)(NDIM, 1) = 1;
-      (CellMat)(NDIM, 2) = 1;(CellMat)(NDIM, 3) = 1;
-      tbox::Matrix<double> PLUinvMat(NDIM+1);
-      PLUinvMat = CellMat.getInverse();
-//      /// Test
-//      double matdata[4][4];
-//      double invdata[4][4];
-//      for(int row = 0; row < 4; row ++){
-//          for(int col = 0; col < 4; col ++){
-//              matdata[row][col] = (CellMat)(row, col) ;
-//              invdata[row][col] = (PLUinvMat)(row, col) ;
-//          }
-//      }
-      tbox::Vector<double> QuadVec(4);
-      (QuadVec)[0] = pointcoord[0];(QuadVec)[1] = pointcoord[1];
-      (QuadVec)[2] = pointcoord[2];(QuadVec)[3] = 1;
-      tbox::Vector<double> QuadSol(4);
-      QuadSol = PLUinvMat * QuadVec;
-      for(int vdim = 0; vdim < NDIM+1; vdim ++)
-          candidate_weight[vdim] = (QuadSol)[vdim];
-      if(abs(candidate_weight[0]-0.5)<0.500001
-              && abs(candidate_weight[1]-0.5)<0.500001
-              && abs(candidate_weight[2]-0.5)<0.500001
-              && abs(candidate_weight[3]-0.5)<0.500001){
-          for(int vdim = 0; vdim < NDIM+1; vdim ++){
-              weight[vdim] = candidate_weight[vdim];
-          }
-          return true;
+    }
+    (CellMat)(NDIM, 0) = 1;(CellMat)(NDIM, 1) = 1;
+    (CellMat)(NDIM, 2) = 1;(CellMat)(NDIM, 3) = 1;
+    tbox::Matrix<double> PLUinvMat(NDIM+1);
+    PLUinvMat = CellMat.getInverse();
+    //      /// Test
+    //      double matdata[4][4];
+    //      double invdata[4][4];
+    //      for(int row = 0; row < 4; row ++){
+    //          for(int col = 0; col < 4; col ++){
+    //              matdata[row][col] = (CellMat)(row, col) ;
+    //              invdata[row][col] = (PLUinvMat)(row, col) ;
+    //          }
+    //      }
+    tbox::Vector<double> QuadVec(4);
+    (QuadVec)[0] = pointcoord[0];(QuadVec)[1] = pointcoord[1];
+    (QuadVec)[2] = pointcoord[2];(QuadVec)[3] = 1;
+    tbox::Vector<double> QuadSol(4);
+    QuadSol = PLUinvMat * QuadVec;
+    for(int vdim = 0; vdim < NDIM+1; vdim ++)
+      candidate_weight[vdim] = (QuadSol)[vdim];
+    if(abs(candidate_weight[0]-0.5)<0.500001
+       && abs(candidate_weight[1]-0.5)<0.500001
+       && abs(candidate_weight[2]-0.5)<0.500001
+       && abs(candidate_weight[3]-0.5)<0.500001){
+      for(int vdim = 0; vdim < NDIM+1; vdim ++){
+        weight[vdim] = candidate_weight[vdim];
       }
-      else{
-          return false;
-      }
+      return true;
+    }
+    else{
+      return false;
+    }
 
   }
 
