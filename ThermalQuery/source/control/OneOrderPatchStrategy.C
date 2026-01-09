@@ -204,6 +204,11 @@ void OneOrderPatchStrategy::initializePatchData(hier::Patch<NDIM>& patch,
 
     int num_nodes = patch.getNumberOfNodes(1);
     int local_num_nodes = patch.getNumberOfNodes();
+    int num_cells = patch.getNumberOfCells(0);
+    tbox::Pointer<pdat::CellData<NDIM, double> > jacobian =
+        patch.getPatchData(d_Cell_jacobian_id);
+    tbox::Pointer<pdat::CellData<NDIM, double> > volume=
+        patch.getPatchData(d_Cell_volume_id);
     JAUMIN::appu::TetGeom tetrahedron(patch);
     /// 取出点上的自由度分布和映射数据片的头指针
     int* dis_ptr =
@@ -221,7 +226,14 @@ void OneOrderPatchStrategy::initializePatchData(hier::Patch<NDIM>& patch,
       (*plot_data)(0, i) = 0;
       (*error_data)(0, i) = 0;
     }
+    /// 初始化jacobian和体积
+    for(int cc = 0; cc < num_cells; ++cc){
+      (*volume)(0, cc) = tetrahedron.volume(cc);
+      tetrahedron.jacobian(cc, &((*jacobian)(0, cc)));
+    }
   }
+
+
 }
 
 /*************************************************************************
@@ -443,6 +455,15 @@ void OneOrderPatchStrategy::postProcess(hier::Patch<NDIM>& patch,
    * 2023-11-14
    * 输入热应力中的应力网格，输出采样点的序号和网格
    */
+  tbox::Array<int>cell_node_ext,cell_node_idx;
+  patch.getPatchTopology()->getCellAdjacencyNodes(cell_node_ext,cell_node_idx);
+  tbox::Pointer<hier::PatchGeometry<NDIM> > patch_geo =
+      patch.getPatchGeometry();
+  /// 取出本地PatchTopology.
+  tbox::Pointer<hier::PatchTopology<NDIM> > patch_top =
+      patch.getPatchTopology();
+  tbox::Pointer<pdat::NodeData<NDIM, double> > node_coord =
+      patch_geo->getNodeCoordinates();
   int num_cell = patch.getNumberOfCells(0);
   /// The Quad rule 2023-11-14
   appu::TetQuad quad(patch, patch.getPatchData(d_Cell_volume_id),
@@ -450,9 +471,33 @@ void OneOrderPatchStrategy::postProcess(hier::Patch<NDIM>& patch,
   appu::TetQuad::Quad ** Quad_patch = quad.GetQuadTable();
   appu::TetQuad::Quad *Quad_order = Quad_patch[2];
   std::ofstream intpFile;
-
-
-
+  intpFile.open(d_file_name_query.c_str(),ios::app);
+  intpFile.close();
+  for (int cell = 0; cell < num_cell; cell++){
+    int n0 = cell_node_idx[cell_node_ext[cell]+0];
+    int n1 = cell_node_idx[cell_node_ext[cell]+1];
+    int n2 = cell_node_idx[cell_node_ext[cell]+2];
+    int n3 = cell_node_idx[cell_node_ext[cell]+3];
+    double cell_x[NDIM+1] = {(*node_coord)(0,n0),(*node_coord)(0,n1),
+                             (*node_coord)(0,n2),(*node_coord)(0,n3)};
+    double cell_y[NDIM+1] = {(*node_coord)(1,n0),(*node_coord)(1,n1),
+                             (*node_coord)(1,n2),(*node_coord)(1,n3)};
+    double cell_z[NDIM+1] = {(*node_coord)(2,n0),(*node_coord)(2,n1),
+                             (*node_coord)(2,n2),(*node_coord)(2,n3)};
+    for(int nquad =0; nquad < Quad_order->npoints; nquad ++){
+      double *quad_table_value = Quad_order->points + nquad * (NDIM + 1);
+      double query_coord[NDIM] = {0.,0.,0.};
+      for(int nn = 0; nn < NDIM+1; nn ++){
+        query_coord[0] += cell_x[nn]*quad_table_value[nn];
+        query_coord[1] += cell_y[nn]*quad_table_value[nn];
+        query_coord[2] += cell_z[nn]*quad_table_value[nn];
+      }
+      intpFile.open(d_file_name_query.c_str());
+      intpFile<<cell<<"\t"<<nquad<<"\t"<<
+                query_coord[0]<<query_coord[1]<<query_coord[2]<<endl;
+      intpFile.close();
+    }
+  }
 
 }
 

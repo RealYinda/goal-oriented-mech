@@ -3475,9 +3475,9 @@ void PatchStrategy::QueryFieldAtPoints(hier::Patch<NDIM>& patch, const string& i
   string line;
   while(getline(infile, line)){
     stringstream buf(line);
-    double q_num,q_x, q_y, q_z;
+    double q_num,q_quad,q_x, q_y, q_z;
     // 假设输入文件格式为: x y z
-    if(!(buf >> q_num >> q_x >> q_y >> q_z)) continue;
+    if(!(buf >> q_num >> q_quad >> q_x >> q_y >> q_z)) continue;
     double query_coord[3] = {q_x, q_y, q_z};
     CGAL_K::Point_3 query_pt(q_x, q_y, q_z);
     // 7. 使用 Tree 查找包含该点的所有四面体（候选）
@@ -3509,7 +3509,7 @@ void PatchStrategy::QueryFieldAtPoints(hier::Patch<NDIM>& patch, const string& i
           interp_value += node_val * weights[n];
         }
         // 输出：坐标 + 单元ID + 插值结果
-        outfile << q_num << q_x << "\t" << q_y << "\t" << q_z << "\t"
+        outfile << q_num << "\t" << q_quad << "\t"<< q_x << "\t" << q_y << "\t" << q_z << "\t"
                 << cell_id << "\t" << interp_value << endl;
 
         found = true;

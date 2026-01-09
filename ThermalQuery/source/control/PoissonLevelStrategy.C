@@ -104,15 +104,10 @@ int PoissonLevelStrategy::advanceLevel(
 
   actual_dt = predict_dt;
 
-  ///  后处理计算 (计算数值解与解析解误差).
+  ///  在这里输出插值点信息
+  tbox::pout<<"正在进行插值点计算......"<<endl;
   d_num_intc->computing(patch_level, current_time, actual_dt, false);
 
-  double error[2];
-  d_reduction_intc->reduction(error, 2, patch_level, current_time, actual_dt);
-
-  tbox::pout << "L2 error :  " << sqrt(error[0]) << std::endl;
-  tbox::pout << "L1 error :  " << error[1] << std::endl;
-  d_alloc_data->deallocatePatchData(patch_level);
   actual_dt = predict_dt;
 
   return (0);
