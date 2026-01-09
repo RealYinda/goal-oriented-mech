@@ -857,8 +857,8 @@ void PatchStrategy::computeOnPatch(hier::Patch<NDIM>& patch, const double time,
     PostprocessStress(patch, time, dt, component_name);
   } else if (component_name == "DATAEXPLORE") {  // 数值构件, 计算应力.
     Dataexplorer(patch, time, dt, component_name);
-  } else if (component_name == "DATAEXPLORE") {  // 数值构件, 计算应力.
-    Dataexplorer(patch, time, dt, component_name);
+  } else if (component_name == "THERMALPOST") {  // 数值构件, 后处理温度.
+    ThermalPostprocess(patch, time, dt, component_name);
   }else if(component_name == "TH_MAT") {
     buildTh_MatrixOnPatch(patch, time, dt, component_name);
   } else if (component_name == "TH_RHS") {
@@ -3395,6 +3395,7 @@ void PatchStrategy::ThermalPostprocess(hier::Patch<NDIM> &patch, const double ti
                                        const string &component_name){
   /// 完成实现的query功能
   QueryFieldAtPoints(patch,d_file_name_query);
+  /// 潜在的功能，寻找制定的点画平面上的点
 
 }
 
