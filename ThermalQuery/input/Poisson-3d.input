@@ -50,7 +50,7 @@ GridTopology {
 
 GridGeometry {
   MeshImportationParameter{
-    file_name    = "../input/box_3d_10000.k"
+    file_name    = "../../mphtxt2k/code_validation_query_mesh.k"
     refine_times = 0 
   }
 }
@@ -58,7 +58,7 @@ GridGeometry {
 HierarchyTimeIntegrator{
    // 时间控制参数
    start_time           = 0.e0          // 模拟的初始时刻.
-   end_time             = 80.0          // 模拟的终止时刻.
+   end_time             = 1.0          // 模拟的终止时刻.
    max_integrator_steps = 1           // 模拟的最大时间步数.
    max_dt               = 1.0            // 最大时间步步长.
    grow_dt              = 1.2            // 连续两个时间步长的最大放大倍数.

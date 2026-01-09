@@ -471,7 +471,7 @@ void OneOrderPatchStrategy::postProcess(hier::Patch<NDIM>& patch,
   appu::TetQuad::Quad ** Quad_patch = quad.GetQuadTable();
   appu::TetQuad::Quad *Quad_order = Quad_patch[2];
   std::ofstream intpFile;
-  intpFile.open(d_file_name_query.c_str(),ios::app);
+  intpFile.open(d_file_name_query.c_str());
   intpFile.close();
   for (int cell = 0; cell < num_cell; cell++){
     int n0 = cell_node_idx[cell_node_ext[cell]+0];
@@ -492,7 +492,7 @@ void OneOrderPatchStrategy::postProcess(hier::Patch<NDIM>& patch,
         query_coord[1] += cell_y[nn]*quad_table_value[nn];
         query_coord[2] += cell_z[nn]*quad_table_value[nn];
       }
-      intpFile.open(d_file_name_query.c_str());
+      intpFile.open(d_file_name_query.c_str(),ios::app);
       intpFile<<cell<<"\t"<<nquad<<"\t"<<
                 query_coord[0]<<query_coord[1]<<query_coord[2]<<endl;
       intpFile.close();
