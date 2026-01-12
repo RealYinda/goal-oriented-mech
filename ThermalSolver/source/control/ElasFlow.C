@@ -254,6 +254,7 @@ int ElasFlow::advanceLevel(
   tbox::pout<<"结束热传导方程计算，正在进行后处理 "<<endl;
   th_num_intc_plot->computing(patch_level, current_time, actual_dt, false);
   d_Max_T_intc->reduction(&max[0], 1, patch_level, current_time, actual_dt);
+  d_num_intc_thermal_post->computing(patch_level, current_time, actual_dt, false);
 
   if (tbox::MPI::getRank() == 0){
     ofstream outdata;
@@ -261,7 +262,7 @@ int ElasFlow::advanceLevel(
     outdata<<current_time+actual_dt<<"\t"<<max[0]<<endl;
   }
   /////////////////////////////////////////////////////////////////////////////////////////////
-  //#if 1
+  #if 0
   //计时开始函数
   t_fem_build_matrix->start();
   tbox::pout<<"Compute Cauchy momentum equations...... "<<endl;
@@ -317,7 +318,7 @@ int ElasFlow::advanceLevel(
 
   }
 
-  //#endif
+  #endif
 
   actual_dt = predict_dt;
   d_alloc_data->deallocatePatchData(patch_level);

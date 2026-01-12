@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.3)
 project(ThermalSolver CXX C Fortran)
 
 set(NDIM 3)
-set(CREL opt)
+set(CREL dbg)
 
 set(libfind_ROOT "/opt/jaumin1.10")
 set(JAUMIN_ROOT  "/opt/jaumin1.10")

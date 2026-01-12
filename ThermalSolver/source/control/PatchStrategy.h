@@ -534,51 +534,75 @@ public:
   typedef CGAL::AABB_traits<CGAL_K, J_triangle_primitive> J_AABB_traits;
   typedef CGAL::AABB_tree<J_AABB_traits> Tree;
 
-  /// 2026-01-04 更新
+  /// 2026-01-04 更新（最新版已被废弃）
   ///  Yin-Da Wang
   ///  定义四面体结构，存储四个顶点指针和单元ID
-  struct J_tetrahedron {
-    J_point *m_p0;
-    J_point *m_p1;
-    J_point *m_p2;
-    J_point *m_p3;
-    int id; // 单元在Patch上的编号
+  //  struct J_tetrahedron {
+  //    J_point *m_p0;
+  //    J_point *m_p1;
+  //    J_point *m_p2;
+  //    J_point *m_p3;
+  //    int id; // 单元在Patch上的编号
 
-    J_tetrahedron(J_point *p0, J_point *p1, J_point *p2, J_point *p3, int id_in)
-      : m_p0(p0), m_p1(p1), m_p2(p2), m_p3(p3), id(id_in) {}
-  };
-  /// 定义四面体图元，用于 AABB Tree
-  struct J_tetrahedron_primitive{
-  public:
-    typedef const J_tetrahedron* Id;
-    typedef CGAL_K::Point_3    Point;
-    typedef CGAL_K::Tetrahedron_3 Datum;
-  private:
-    Id m_pt;
-  public:
-    J_tetrahedron_primitive() {}
-    J_tetrahedron_primitive(std::vector<J_tetrahedron>::const_iterator it) : m_pt(&(*it)) {}
+  //    J_tetrahedron(J_point *p0, J_point *p1, J_point *p2, J_point *p3, int id_in)
+  //      : m_p0(p0), m_p1(p1), m_p2(p2), m_p3(p3), id(id_in) {}
+  //  };
+  //  /// 定义四面体图元，用于 AABB Tree
+  //  struct J_tetrahedron_primitive{
+  //  public:
+  //    typedef const J_tetrahedron* Id;
+  //    typedef CGAL_K::Point_3    Point;
+  //    typedef CGAL_K::Tetrahedron_3 Datum;
+  //  private:
+  //    Id m_pt;
+  //  public:
+  //    J_tetrahedron_primitive() {}
+  //    J_tetrahedron_primitive(std::vector<J_tetrahedron>::const_iterator it) : m_pt(&(*it)) {}
 
-    const Id& id() const { return m_pt; }
+  //    const Id& id() const { return m_pt; }
 
-    Point convert(const J_point *p) const {
-      return Point(p->m_x, p->m_y, p->m_z);
-    }
-    // 返回 CGAL 的四面体对象，用于构建包围盒
-    Datum datum() const {
-      return Datum(convert(m_pt->m_p0),
-                   convert(m_pt->m_p1),
-                   convert(m_pt->m_p2),
-                   convert(m_pt->m_p3));
-    }
+  //    Point convert(const J_point *p) const {
+  //      return Point(p->m_x, p->m_y, p->m_z);
+  //    }
+  //    // 返回 CGAL 的四面体对象，用于构建包围盒
+  //    Datum datum() const {
+  //      return Datum(convert(m_pt->m_p0),
+  //                   convert(m_pt->m_p1),
+  //                   convert(m_pt->m_p2),
+  //                   convert(m_pt->m_p3));
+  //    }
 
-    // 参考点
-    Point reference_point() const { return convert(m_pt->m_p0); }
-  };
+  //    // 参考点
+  //    Point reference_point() const { return convert(m_pt->m_p0); }
+  //  };
 
-  ///  定义针对四面体的 Tree 类型
-  typedef CGAL::AABB_traits<CGAL_K, J_tetrahedron_primitive> J_Tet_Traits;
-  typedef CGAL::AABB_tree<J_Tet_Traits> Tet_Tree;
+  //  ///  定义针对四面体的 Tree 类型
+  //  /// 直接typedef是错误写法
+  //  //  typedef CGAL::AABB_traits<CGAL_K, J_tetrahedron_primitive> J_Tet_Traits;
+  //  class J_Tet_Traits : public CGAL::AABB_traits<CGAL_K, J_tetrahedron_primitive> {
+  //  public:
+  //    // 基类定义
+  //    typedef CGAL::AABB_traits<CGAL_K, J_tetrahedron_primitive> Base;
+
+  //    // 【核心】覆盖基类的 Do_intersect 仿函数
+  //    class Do_intersect {
+  //    public:
+  //      // 1. 针对 Point 和 Tetrahedron 的自定义逻辑
+  //      // 这是唯一必须保留的函数，因为你的查询对象是 Point
+  //      bool operator()(const CGAL_K::Point_3& p, const CGAL_K::Tetrahedron_3& t) const {
+  //        // !has_on_unbounded_side 意味着点在有界侧(内部)或边界上
+  //        return !t.has_on_unbounded_side(p);
+  //      }
+
+  //      // 【删除了 Ray 和 Bbox 的重载】
+  //      // CGAL 4.13 不支持 Tetrahedron 的 do_intersect，
+  //      // 且你的任务只是“点定位”，不需要射线求交或盒子求交，
+  //      // 所以直接删除这些会导致编译错误的代码。
+  //    };
+  //  };
+  //  typedef CGAL::AABB_tree<J_Tet_Traits> Tet_Tree;
+
+
 
   /// 使用Gemini提供的新方法查找点
   void QueryFieldAtPoints(hier::Patch<NDIM>& patch, const string& input_filename);
