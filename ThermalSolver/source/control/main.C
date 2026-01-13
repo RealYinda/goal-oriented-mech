@@ -176,7 +176,7 @@ int main(int argc, char* argv[]) {
     tbox::Pointer<PatchStrategy> elas_patch =
         new PatchStrategy("elas", fem_db, true);
     tbox::Pointer<ElasFlow> level_integrator =
-        new ElasFlow("elas", elas_patch, fem_db->getDatabase("Solver"));
+        new ElasFlow("elas", elas_patch, fem_db);
 
     /*******************************************************************************
      *                    创建网格片层次结构类对象 *
