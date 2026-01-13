@@ -158,6 +158,21 @@ public:
       const double time, tbox::Pointer<tbox::Matrix<double> > ele_mat,int entity_id,tbox::Array<double> T_val);
 
   /**
+   * @brief 计算热求解单元矩阵(稳态).
+   *
+   * @param ele_info       输入参数, 指针, 指向单元信息对象.
+   * @param dt             输入参数, 双精度, 时间步长.
+   * @param time           输入参数, 双精度, 当前时刻.
+   * @param ele_mat        输出参数, 指针, 指向矩阵.
+   *
+   * update #3
+   * @param entity_id      输入参数，整型，单元对应的实体编号
+   */
+  virtual void buildStaticTh_ElementMatrix(
+      tbox::Array<hier::DoubleVector<NDIM> > real_vertex, const double dt,
+      const double time, tbox::Pointer<tbox::Matrix<double> > ele_mat,int entity_id,tbox::Array<double> T_val);
+
+  /**
    * @brief 计算热求解单元右端项.
    *
    * @param ele_info       输入参数, 指针, 指向单元信息对象.
@@ -172,6 +187,22 @@ public:
       tbox::Array<hier::DoubleVector<NDIM> > real_vertex, const double dt,
       const double time, tbox::Pointer<tbox::Vector<double> > ele_vec,
 	  int entity_id, tbox::Array<double> T_val, double e_ThermalSource);
+
+  /**
+   * @brief 计算热求解单元右端项(稳态).
+   *
+   * @param ele_info       输入参数, 指针, 指向单元信息对象.
+   * @param dt             输入参数, 双精度, 时间步长.
+   * @param time           输入参数, 双精度, 当前时刻.
+   * @param ele_vec        输出参数, 指针, 指向单元向量.
+   *
+   * update #6
+   * @param d_newmark      输入参数，结构体NewmarkData，Newmark-beta方法所需数据
+   */
+  virtual void buildStaticTh_ElementRHS(
+      tbox::Array<hier::DoubleVector<NDIM> > real_vertex, const double dt,
+      const double time, tbox::Pointer<tbox::Vector<double> > ele_vec,
+      int entity_id, tbox::Array<double> T_val, double e_ThermalSource);
 
   ////////////////////////////////////////////////////////////////////////////////////////////////////////
 

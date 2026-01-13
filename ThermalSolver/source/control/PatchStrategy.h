@@ -695,6 +695,8 @@ private:
   /// 需要读取的坐标点信息
   string d_file_name_query;
 
+  bool d_is_time_domain_solve;
+
   /// 输入数据库指针.
   tbox::Pointer<tbox::Database> d_input_db;
 

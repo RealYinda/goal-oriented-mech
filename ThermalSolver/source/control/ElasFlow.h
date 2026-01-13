@@ -136,6 +136,8 @@ private:
   /*!@brief 解法器参数数据库,管理解法器名称,收敛阈值,最大迭代步数等控制参数. */
   tbox::Pointer<tbox::Database> d_solver_db;
 
+  tbox::Pointer<tbox::Database> d_fem_db;
+
   /*!@brief 网格片算法类对象. */
   tbox::Pointer<algs::StandardComponentPatchStrategy<NDIM> > d_patch_strategy;
 

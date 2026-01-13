@@ -3379,6 +3379,12 @@ void PatchStrategy::getFromInput(tbox::Pointer<tbox::Database> db) {
     TBOX_ERROR(d_object_name << ": "
                << " No key `query_file_name' found in data." << endl);
   }
+  if (db->keyExists("time_domain_solving")) {
+    d_is_time_domain_solve = db->getBool("time_domain_solving");
+  } else {
+    TBOX_ERROR(d_object_name << ": "
+               << " No key `time_domain_solving' found in data." << endl);
+  }
 }
 
 /*************************************************************************
@@ -3568,6 +3574,7 @@ void PatchStrategy::QueryFieldAtPoints(hier::Patch<NDIM>& patch, const string& i
   }
   Tree AABB_tree_on_patch(triangles.begin(),triangles.end());
   AABB_tree_on_patch.build();
+  AABB_tree_on_patch.accelerate_distance_queries();
   // 6. 读取输入文件并查询
   ifstream infile;
   infile.open(input_filename.c_str(), ios::in);

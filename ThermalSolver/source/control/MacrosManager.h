@@ -50,6 +50,10 @@ struct NewmarkData
 #define STATIC_S 0  //1： 存在节点力载荷； 0： 不存在
 #define TIME_S 1  //1： 存在表面力载荷； 0： 不存在
 
+/// 是否是时域温度场求解?
+#define TEMP_TD 0
+
+
 #define THERMAL_SOURCE 0
 
 // @  update #6 2017-05-02

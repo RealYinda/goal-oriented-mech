@@ -9,103 +9,93 @@
 
 Main{
     // 日志文件名称.
-   log_file_name    = "Elas.log"
-   log_all_nodes    = FALSE 
+    log_file_name    = "Elas.log"
+    log_all_nodes    = FALSE
 
-   // 可视化数据场的输出参数.
-   javis_dump_interval         = 1                 // 输出时间步的间隔. 0表示关闭.
-   javis_dump_dirname          = "javis_elas"      // 存储数据场的目录名.
-   javis_number_procs_per_file = 1                 // 多少个进程共享一个输出文件.
+    // 可视化数据场的输出参数.
+    javis_dump_interval         = 1                 // 输出时间步的间隔. 0表示关闭.
+    javis_dump_dirname          = "javis_elas"      // 存储数据场的目录名.
+    javis_number_procs_per_file = 1                 // 多少个进程共享一个输出文件.
 
-   // 重启动控制参数. 
-   restart_dump_interval       = 0                 // 重启动时间步的间隔. 0表示关闭.
-   restart_dump_dirname        = "restart_elas"    // 存储重启动数据场的目录名.
+    // 重启动控制参数.
+    restart_dump_interval       = 0                 // 重启动时间步的间隔. 0表示关闭.
+    restart_dump_dirname        = "restart_elas"    // 存储重启动数据场的目录名.
 
 }
 
 
 FEM {
-   problem_type = "elas"
+    problem_type = "elas"
 
-   element_type       = "LinearTetrahedron"     // 单元类型
-   element_marks       = 0                      // 单元类型
-   integrator_type    = "LinearTetrahedron"     // 积分器类型
-   integrator_marks   = 0
-   material_type      = "LinearTetrahedron"     // 材料类型
-   material_marks     = 0
-   shape_func_type    = "LinearTetrahedron"     // 形函数类型 
-   shape_func_marks   = 0	
-Solver {
-   SolverTH {
-      solver_name = "HYPRE_PCG"
-      solver_tol      = 1.0e-40                    // 解法器阈值
-      max_iter = 5000
-      residual_tol= 1.0e-10
-      solver_max_iter = 30000                      // 解法器最大迭代步数
-      solver_min_iter = 1                         // 解法器最小迭代步数
-      print_iter_info    = 1 
-  }
-   Solveri__ {
-      solver_name = "JAUMIN_CG"
-      solver_tol      = 1.0e-8                    // 解法器阈值
-      solver_max_iter = 10000                      // 解法器最大迭代步数
-      solver_min_iter = 1                         // 解法器最小迭代步数
-      print_level    = 1
-  }
-   SolverT1 {
-      solver_name = "PETSc_Solver"
-      //expert_options = "-help -ksp_type cg -pc_type hypre -ksp_monitor_true_residual -ksp_rtol 1.0e-8"
-      expert_options = "-help -ksp_type preonly -pc_type lu"
-   }
-   SolverTH2 {
-      solver_name = "PETSc_Solver"
-      //expert_options = "-help -ksp_type cg -pc_type hypre -ksp_monitor_true_residual -ksp_rtol 1.0e-8"
-      expert_options = "-help -ksp_type preonly -pc_type lu"
-   }
-   SolverE {
-      solver_name = "HYPRE_PCG"
-      solver_tol      = 1.0e-40                    // 解法器阈值
-      solver_max_iter = 10000                      // 解法器最大迭代步数
-      solver_min_iter = 1                         // 解法器最小迭代步数
-      max_iter = 5000
-      residual_tol= 1.0e-10
-      print_iter_info    = 1 
-   }
-  SolverT {
-      solver_name = "HYPRE_PCG"
-      solver_tol      = 1.0e-40                    // 解法器阈值
-      solver_max_iter = 40000                      // 解法器最大迭代步数
-      solver_min_iter = 1                         // 解法器最小迭代步数
-      max_iter = 5000
-      residual_tol= 1.0e-10
-      print_iter_info    = 1 
-   }
-}
-   constraint_types = "displacement10"
-   constraint_marks = 2
-   load_types       = "node_force"
-   load_marks       = 0 
-   convection_boundary = 2,3,4,5,6
-   improved_stress = 0
-   query_file_name = "../input/TempQuery.dat"
+    element_type       = "LinearTetrahedron"     // 单元类型
+    element_marks       = 0                      // 单元类型
+    integrator_type    = "LinearTetrahedron"     // 积分器类型
+    integrator_marks   = 0
+    material_type      = "LinearTetrahedron"     // 材料类型
+    material_marks     = 0
+    shape_func_type    = "LinearTetrahedron"     // 形函数类型
+    shape_func_marks   = 0
+    Solver {
+        SolverTH {
+            solver_name = "HYPRE_PCG"
+            solver_tol      = 1.0e-40                    // 解法器阈值
+            max_iter = 5000
+            residual_tol= 1.0e-10
+            solver_max_iter = 30000                      // 解法器最大迭代步数
+            solver_min_iter = 1                         // 解法器最小迭代步数
+            print_iter_info    = 1
+        }
+        Solveri__ {
+            solver_name = "JAUMIN_CG"
+            solver_tol      = 1.0e-8                    // 解法器阈值
+            solver_max_iter = 10000                      // 解法器最大迭代步数
+            solver_min_iter = 1                         // 解法器最小迭代步数
+            print_level    = 1
+        }
+        SolverT1 {
+            solver_name = "PETSc_Solver"
+            //expert_options = "-help -ksp_type cg -pc_type hypre -ksp_monitor_true_residual -ksp_rtol 1.0e-8"
+            expert_options = "-help -ksp_type preonly -pc_type lu"
+        }
+        SolverTH2 {
+                solver_name = "PETSc_Solver"
+                //expert_options = "-help -ksp_type cg -pc_type hypre -ksp_monitor_true_residual -ksp_rtol 1.0e-8"
+                expert_options = "-help -ksp_type preonly -pc_type lu"
+        }
+        SolverE {
+            solver_name = "HYPRE_PCG"
+            solver_tol      = 1.0e-40                    // 解法器阈值
+            solver_max_iter = 10000                      // 解法器最大迭代步数
+            solver_min_iter = 1                         // 解法器最小迭代步数
+            max_iter = 5000
+            residual_tol= 1.0e-10
+            print_iter_info    = 1
+        }
+        SolverT {
+            solver_name = "HYPRE_PCG"
+            solver_tol      = 1.0e-40                    // 解法器阈值
+            solver_max_iter = 40000                      // 解法器最大迭代步数
+            solver_min_iter = 1                         // 解法器最小迭代步数
+            max_iter = 5000
+            residual_tol= 1.0e-10
+            print_iter_info    = 1
+        }
+    }
+    constraint_types = "displacement10"
+    constraint_marks = 2
+    load_types       = "node_force"
+    load_marks       = 0
+    convection_boundary = 2,3,4,5,6
+    improved_stress = 0
+    query_file_name = "../input/TempQuery.dat"
+    time_domain_solving = FALSE
 }
 
 GridGeometry {
-   MeshImportationParameter{
-     file_name = "../../mphtxt2k/code_validation_compute_mesh.k"	
-     //file_name = "../input/stress_test2.k"
-     //file_name = "../input/hybrid.k"
-     //file_name = "../input/bar-tet-498.k"
-     //file_name = "../input/box-12.J"
-     //file_name = "../input/beam_208_nodeforce.k"
-     //file_name = "../input/finalmesh.k"
-     //file_name = "../input/model1.k"
-     //file_name = "../input/b2-1156.J"
-     //file_name = "../input/c.J"
-     //file_name = "../input/c1-22390.J"
-     //file_name = "../input/box-7000.J"
-     refine_times = 0
-   }  
+    MeshImportationParameter{
+        file_name = "../../mphtxt2k/code_validation_compute_mesh.k"
+        refine_times = 0
+    }
 }
 
 GridTopology {
@@ -114,27 +104,28 @@ GridTopology {
 
 HierarchyTimeIntegrator{
 
-   // 时间控制参数
-   start_time           = 0.e0         // 模拟的初始时刻.
-   end_time             = 1e-6      // 模拟的终止时刻.
-   max_integrator_steps = 120         // 模拟的最大时间步数.
-   max_dt               = 1e-1       // 最大时间步步长.
-   grow_dt              = 1.0         // 连续两个时间步长的最大放大倍数.
+    // 时间控制参数
+    start_time           = 0.e0         // 模拟的初始时刻.
+    end_time             = 1e-6      // 模拟的终止时刻.
+    max_integrator_steps = 120         // 模拟的最大时间步数.
+    max_dt               = 1e-1       // 最大时间步步长.
+    grow_dt              = 1.0         // 连续两个时间步长的最大放大倍数.
 
-   GriddingAlgorithm{
-   
-   // 网格片大小.
-   patch_size = 0
+    GriddingAlgorithm{
+
+    // 网格片大小.
+    patch_size = 0
 
 
-   }
+    }
 }
 JaVisDataWriter{
 }
+
 TimerManager{
-   timer_list       = "*::*::*"
-   print_summed     = TRUE
-   print_max        = TRUE
-   print_threshold  = 0
+    timer_list       = "*::*::*"
+    print_summed     = TRUE
+    print_max        = TRUE
+    print_threshold  = 0
 }
 

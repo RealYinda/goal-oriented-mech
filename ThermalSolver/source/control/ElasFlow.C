@@ -34,7 +34,8 @@ ElasFlow::ElasFlow(
 
   d_patch_strategy = strategy;
 
-  d_solver_db = input_db;
+  d_solver_db = input_db->getDatabase("Solver");
+  d_fem_db = input_db->getDatabase("FEM");
   d_solver_manager = solv::LinearSolverManager<NDIM>::getManager();
   d_solver_s = d_solver_manager->lookupLinearSolver(
         d_solver_db->getDatabase ("SolverT")->getString("solver_name"));
