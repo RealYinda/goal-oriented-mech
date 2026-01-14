@@ -46,8 +46,8 @@ static void prefixInputDirName(const string& input_filename,
     path_name = input_filename.substr(0, slash_pos + 1);
 
   string mesh_file = input_db->getDatabase("GridGeometry")
-                         ->getDatabase("MeshImportationParameter")
-                         ->getString("file_name");
+      ->getDatabase("MeshImportationParameter")
+      ->getString("file_name");
 
   slash_pos = mesh_file.find_first_of('/');
   if (slash_pos != 0) {
@@ -147,10 +147,10 @@ int main(int argc, char* argv[]) {
     /// 创建计时器.
     tbox::Pointer<tbox::Timer> t_write_javis_data =
         tbox::TimerManager::getManager()->getTimer(
-            "apps::main::write_javis_data");
+          "apps::main::write_javis_data");
     tbox::Pointer<tbox::Timer> t_write_restart =
         tbox::TimerManager::getManager()->getTimer(
-            "apps::main::write_restart_data");
+          "apps::main::write_restart_data");
 
     /// 创建网格几何对象.
     tbox::Pointer<hier::GridGeometry<NDIM> > grid_geometry =
@@ -183,9 +183,9 @@ int main(int argc, char* argv[]) {
      *******************************************************************************/
     tbox::Pointer<algs::HierarchyTimeIntegrator<NDIM> > time_integrator =
         new algs::HierarchyTimeIntegrator<NDIM>(
-            "HierarchyTimeIntegrator",
-            input_db->getDatabase("HierarchyTimeIntegrator"), patch_hierarchy,
-            level_integrator, true);
+          "HierarchyTimeIntegrator",
+          input_db->getDatabase("HierarchyTimeIntegrator"), patch_hierarchy,
+          level_integrator, true);
 
     /*******************************************************************************
      *                                  初 始 化 网 格 层 *
@@ -198,7 +198,7 @@ int main(int argc, char* argv[]) {
     tbox::Pointer<appu::JaVisDataWriter<NDIM> > javis_data_writer;
     if (javis_dump_interval > 0) {
       javis_data_writer = new appu::JaVisDataWriter<NDIM>(
-          "elas_JaVis_Writer", javis_dump_dirname, javis_number_procs_per_file);
+            "elas_JaVis_Writer", javis_dump_dirname, javis_number_procs_per_file);
 
       elas_patch->registerPlotData(javis_data_writer);
     }
@@ -246,13 +246,26 @@ int main(int argc, char* argv[]) {
       dt_actual = time_integrator->advanceHierarchy();
 
       loop_time += dt_actual;
+      bool d_is_time_domain_solve = fem_db->getBool("time_domain_solving");
 
-      tbox::pout << "Simulation time is " << loop_time << endl;
-      tbox::pout << "++++++++++++++++++++++++++++++++++++++++++++\n\n" << endl;
+      if(!d_is_time_domain_solve){
+        tbox::pout << "\n\n++++++++++++++++++++++++++++++++++++++++++++" << endl;
+        tbox::pout << "At end of solving static status " << endl;
+        tbox::pout << "++++++++++++++++++++++++++++++++++++++++++++\n\n" << endl;
+        loop_time = loop_time_end;
+      }
+      else{
+        tbox::pout << "Simulation time is " << loop_time << endl;
+        tbox::pout << "++++++++++++++++++++++++++++++++++++++++++++\n\n" << endl;
 
-      tbox::pout << "\n\n++++++++++++++++++++++++++++++++++++++++++++" << endl;
-      tbox::pout << "At end of solving # " << iteration_num << endl;
-      tbox::pout << "++++++++++++++++++++++++++++++++++++++++++++\n\n" << endl;
+        tbox::pout << "\n\n++++++++++++++++++++++++++++++++++++++++++++" << endl;
+        tbox::pout << "At end of solving # " << iteration_num << endl;
+        tbox::pout << "++++++++++++++++++++++++++++++++++++++++++++\n\n" << endl;
+
+      }
+
+
+
 
       if ((restart_dump_interval > 0) &&
           ((iteration_num % restart_dump_interval) == 0)) {

@@ -2476,36 +2476,14 @@ void PatchStrategy::applyTh_Constraint(hier::Patch<NDIM>& patch,
   /// 自由度信息中的映射信息。
   int* dof_map = d_dof_info_th->getDOFMapping(patch, hier::EntityUtilities::NODE);
   /// 取出矩阵向量的核心数据结构的指针
-  int* row_start = mat_data->getRowStartPointer();
-  int* col_idx = mat_data->getColumnIndicesPointer();
-  double* mat_val = mat_data->getValuePointer();
+
   double* vec_val = vec_data->getPointer();
   tbox::Array<int>face_node_ext,face_node_idx;
   patch.getPatchTopology()->getFaceAdjacencyNodes(face_node_ext,face_node_idx);
   tbox::Pointer<pdat::NodeData<NDIM, double> > node_coord =
       patch_geo->getNodeCoordinates();
 
-  /// 边界条件处理.
-  if (patch_geo->hasEntitySet(3, hier::EntityUtilities::NODE)) {
-    // 获取指定编号和类型的集合包含的网格实体的索引。
-    const tbox::Array<int>& entity_idx = patch_geo->getEntityIndicesInSet(
-          3, hier::EntityUtilities::NODE, num_nodes);
-    int size = entity_idx.getSize();
-    /// 对角化 1 法处理约束。
-    for (int i = 0; i < size; ++i) {
-      int index = dof_map[entity_idx[i]];
-      vec_val[index] =293.15; /**< 载荷项设为 0 */
-      for (int j = row_start[index]; j < row_start[index + 1]; ++j) {
-        if (col_idx[j] == index) {
-          mat_val[j] = 1.0; /**< 对角线元素 */
-        } else {
-          mat_val[j] = 0.0;                     /**< 非对角线元素 */
-          vec_val[col_idx[j]] = vec_val[col_idx[j]] - (*mat_data)(col_idx[j], index)*vec_val[index];
-          (*mat_data)(col_idx[j], index) = 0.0; /**< 对应的列元素 */
-        }
-      }
-    }
-  }
+
 #if 0
   /// 边界条件处理.
   if (patch_geo->hasEntitySet(2, hier::EntityUtilities::NODE)) {
@@ -2568,9 +2546,16 @@ void PatchStrategy::applyTh_Constraint(hier::Patch<NDIM>& patch,
 
         }
         for (int i = 0; i < 3; i++) {
-          vec_data->addVectorValue(dof_map[node_id[i]], b[i]*dt);
+          if(d_is_time_domain_solve)
+            vec_data->addVectorValue(dof_map[node_id[i]], b[i]*dt);
+          else
+            vec_data->addVectorValue(dof_map[node_id[i]], b[i]);
           for (int j = 0; j < 3; j++) {
-            mat_data->addMatrixValue(dof_map[node_id[i]], dof_map[node_id[j]],  k[i][j]*dt);
+            if(d_is_time_domain_solve)
+              mat_data->addMatrixValue(dof_map[node_id[i]], dof_map[node_id[j]],  k[i][j]*dt);
+            else
+              mat_data->addMatrixValue(dof_map[node_id[i]], dof_map[node_id[j]],  k[i][j]);
+
           }
 
         }
@@ -2579,6 +2564,32 @@ void PatchStrategy::applyTh_Constraint(hier::Patch<NDIM>& patch,
     }
 
 
+  }
+  /// 矩阵组装。
+  mat_data->assemble();
+  int* row_start = mat_data->getRowStartPointer();
+  int* col_idx = mat_data->getColumnIndicesPointer();
+  double* mat_val = mat_data->getValuePointer();
+  /// 边界条件处理.
+  if (patch_geo->hasEntitySet(3, hier::EntityUtilities::NODE)) {
+    // 获取指定编号和类型的集合包含的网格实体的索引。
+    const tbox::Array<int>& entity_idx = patch_geo->getEntityIndicesInSet(
+          3, hier::EntityUtilities::NODE, num_nodes);
+    int size = entity_idx.getSize();
+    /// 对角化 1 法处理约束。
+    for (int i = 0; i < size; ++i) {
+      int index = dof_map[entity_idx[i]];
+      vec_val[index] =293.15; /**< 载荷项设为 0 */
+      for (int j = row_start[index]; j < row_start[index + 1]; ++j) {
+        if (col_idx[j] == index) {
+          mat_val[j] = 1.0; /**< 对角线元素 */
+        } else {
+          mat_val[j] = 0.0;                     /**< 非对角线元素 */
+          vec_val[col_idx[j]] = vec_val[col_idx[j]] - (*mat_data)(col_idx[j], index)*vec_val[index];
+          (*mat_data)(col_idx[j], index) = 0.0; /**< 对应的列元素 */
+        }
+      }
+    }
   }
 }
 
@@ -2689,7 +2700,7 @@ void PatchStrategy::buildTh_RHSOnPatch(hier::Patch<NDIM>& patch,
     //    if((*entityid_data)(0,cell)==70||(*entityid_data)(0,cell)==71)
     ///
     /// add to debug!!!!!!
-            e_ThermalSource=e_ThermalSource+q;
+    e_ThermalSource=e_ThermalSource+q;
 
 
     /// 取出单元对象.
@@ -2704,7 +2715,10 @@ void PatchStrategy::buildTh_RHSOnPatch(hier::Patch<NDIM>& patch,
     }
 
     /// 计算单元右端项，并组装。
-    ele->buildTh_ElementRHS(vertex, dt, time, ele_vec, (*materialid_data)(0,cell),T_val, e_ThermalSource);
+    if(d_is_time_domain_solve)
+      ele->buildTh_ElementRHS(vertex, dt, time, ele_vec, (*materialid_data)(0,cell),T_val, e_ThermalSource);
+    else
+      ele->buildStaticTh_ElementRHS(vertex, dt, time, ele_vec, (*materialid_data)(0,cell),T_val, e_ThermalSource);
     for (int i2 = 0; i2 < n_vertex; ++i2)
       vec_data->addVectorValue(mapping[i2], (*ele_vec)[i2]);
   }
@@ -2778,8 +2792,11 @@ void PatchStrategy::buildTh_MatrixOnPatch(hier::Patch<NDIM>& patch,
     tbox::Pointer<BaseElement<NDIM> > ele =
         d_element_manager->getElement(d_element_type[0]);
 
-    /// 计算单元矩阵
-    ele->buildTh_ElementMatrix(vertex, dt, time, ele_mat,(*materialid_data)(0,cell),T_val);
+    /// 计算单元矩阵,区分稳态和瞬态
+    if(d_is_time_domain_solve)
+      ele->buildTh_ElementMatrix(vertex, dt, time, ele_mat,(*materialid_data)(0,cell),T_val);
+    else
+      ele->buildStaticTh_ElementMatrix(vertex, dt, time, ele_mat,(*materialid_data)(0,cell),T_val);
 
     /// 累加单元矩阵，这里用户根据映射将矩阵挨个添加。
     int row = 0, col = 0;
@@ -2791,8 +2808,7 @@ void PatchStrategy::buildTh_MatrixOnPatch(hier::Patch<NDIM>& patch,
       }
     }
   }
-  /// 矩阵组装。
-  mat_data->assemble();
+
 }
 
 void PatchStrategy::Thermal_PostProcesing(hier::Patch<NDIM>& patch, const double time,
@@ -3415,123 +3431,123 @@ void PatchStrategy::ThermalPostprocess(hier::Patch<NDIM> &patch, const double ti
 *  已被废弃,换了新的实现方式,与DataExplorer一样
 ************************************************************************/
 void PatchStrategy::QueryFieldAtPoints(hier::Patch<NDIM>& patch, const string& input_filename){
-//  // 1. 获取几何和拓扑信息
-//  tbox::Pointer<hier::PatchGeometry<NDIM> > patch_geo = patch.getPatchGeometry();
-//  tbox::Pointer<pdat::NodeData<NDIM, double> > node_coord = patch_geo->getNodeCoordinates();
-//  tbox::Pointer<hier::PatchTopology<NDIM> > patch_top = patch.getPatchTopology();
+  //  // 1. 获取几何和拓扑信息
+  //  tbox::Pointer<hier::PatchGeometry<NDIM> > patch_geo = patch.getPatchGeometry();
+  //  tbox::Pointer<pdat::NodeData<NDIM, double> > node_coord = patch_geo->getNodeCoordinates();
+  //  tbox::Pointer<hier::PatchTopology<NDIM> > patch_top = patch.getPatchTopology();
 
-//  // 获取单元-节点邻接关系
-//  tbox::Array<int> cell_node_ext, cell_node_idx;
-//  patch_top->getCellAdjacencyNodes(cell_node_ext, cell_node_idx);
+  //  // 获取单元-节点邻接关系
+  //  tbox::Array<int> cell_node_ext, cell_node_idx;
+  //  patch_top->getCellAdjacencyNodes(cell_node_ext, cell_node_idx);
 
-//  int num_nodes = patch.getNumberOfNodes(0); // 本地节点数
-//  int num_cells = patch.getNumberOfCells(0); // 本地单元数
+  //  int num_nodes = patch.getNumberOfNodes(0); // 本地节点数
+  //  int num_cells = patch.getNumberOfCells(0); // 本地单元数
 
-//  // 2. 获取物理场数据 (例如温度 T_data)
-//  // 获取温度场数据，用来进行点插值
-//  tbox::Pointer<pdat::NodeData<NDIM, double> > T_data = patch.getPatchData(th_plot_id);
-
-
-//  // 3. 准备CGAL点数据
-//  /// 建树流程
-//  /// 清空并重新填充类成员 Point_on_patch，防止多次调用数据累积
-//  /// 将patch上所有的结点都保留下来备用
-//  Point_on_patch.clear();
-//  Point_on_patch.reserve(num_nodes);
-//  for(int nn = 0; nn < num_nodes; nn++){
-//    Point_on_patch.push_back(J_point((*node_coord)(0,nn), (*node_coord)(1,nn), (*node_coord)(2,nn)));
-//  }
-
-//  // 4. 构建四面体集合
-//  std::vector<J_tetrahedron> tetrahedrons;
-//  tetrahedrons.reserve(num_cells);
-
-//  for(int i = 0; i < num_cells; ++i) {
-//    // 获取单元的节点索引
-//    int n0 = cell_node_idx[cell_node_ext[i] + 0];
-//    int n1 = cell_node_idx[cell_node_ext[i] + 1];
-//    int n2 = cell_node_idx[cell_node_ext[i] + 2];
-//    int n3 = cell_node_idx[cell_node_ext[i] + 3];
-
-//    tetrahedrons.push_back(J_tetrahedron(
-//                             &Point_on_patch[n0], &Point_on_patch[n1], &Point_on_patch[n2], &Point_on_patch[n3], i
-//                             ));
+  //  // 2. 获取物理场数据 (例如温度 T_data)
+  //  // 获取温度场数据，用来进行点插值
+  //  tbox::Pointer<pdat::NodeData<NDIM, double> > T_data = patch.getPatchData(th_plot_id);
 
 
-//  }
+  //  // 3. 准备CGAL点数据
+  //  /// 建树流程
+  //  /// 清空并重新填充类成员 Point_on_patch，防止多次调用数据累积
+  //  /// 将patch上所有的结点都保留下来备用
+  //  Point_on_patch.clear();
+  //  Point_on_patch.reserve(num_nodes);
+  //  for(int nn = 0; nn < num_nodes; nn++){
+  //    Point_on_patch.push_back(J_point((*node_coord)(0,nn), (*node_coord)(1,nn), (*node_coord)(2,nn)));
+  //  }
+
+  //  // 4. 构建四面体集合
+  //  std::vector<J_tetrahedron> tetrahedrons;
+  //  tetrahedrons.reserve(num_cells);
+
+  //  for(int i = 0; i < num_cells; ++i) {
+  //    // 获取单元的节点索引
+  //    int n0 = cell_node_idx[cell_node_ext[i] + 0];
+  //    int n1 = cell_node_idx[cell_node_ext[i] + 1];
+  //    int n2 = cell_node_idx[cell_node_ext[i] + 2];
+  //    int n3 = cell_node_idx[cell_node_ext[i] + 3];
+
+  //    tetrahedrons.push_back(J_tetrahedron(
+  //                             &Point_on_patch[n0], &Point_on_patch[n1], &Point_on_patch[n2], &Point_on_patch[n3], i
+  //                             ));
 
 
-//  // 5. 构建 AABB Tree
-//  Tet_Tree tree(tetrahedrons.begin(), tetrahedrons.end());
-//  tree.build(); // 用于加速查找
-
-//  // 6. 读取输入文件并查询
-//  ifstream infile;
-//  infile.open(input_filename.c_str(), ios::in);
-//  if (!infile) {
-//    TBOX_ERROR("Query input file not found: " << input_filename << endl);
-//  }
+  //  }
 
 
+  //  // 5. 构建 AABB Tree
+  //  Tet_Tree tree(tetrahedrons.begin(), tetrahedrons.end());
+  //  tree.build(); // 用于加速查找
 
-//  // 输出文件
-//  stringstream ss;
-//  ss << "Thermal_Data_On_Patch_" << patch.getIndex() << ".dat";
-//  ofstream outfile;
-//  outfile.open(ss.str().c_str(), ios::out);
-//  outfile << std::fixed << std::setprecision(12);
+  //  // 6. 读取输入文件并查询
+  //  ifstream infile;
+  //  infile.open(input_filename.c_str(), ios::in);
+  //  if (!infile) {
+  //    TBOX_ERROR("Query input file not found: " << input_filename << endl);
+  //  }
 
-//  string line;
-//  while(getline(infile, line)){
-//    stringstream buf(line);
-//    double q_num,q_quad,q_x, q_y, q_z;
-//    // 假设输入文件格式为: x y z
-//    if(!(buf >> q_num >> q_quad >> q_x >> q_y >> q_z)) continue;
-//    double query_coord[3] = {q_x, q_y, q_z};
-//    CGAL_K::Point_3 query_pt(q_x, q_y, q_z);
-//    // 7. 使用 Tree 查找包含该点的所有四面体（候选）
-//    // 这里使用 any_intersected_primitive 或者 all_intersected_primitives
-//    // 注意：Point 与 Tetrahedron 的 intersection 在 CGAL Kernel 中是支持的
-//    std::vector<Tet_Tree::Primitive_id> candidates;
-//    tree.all_intersected_primitives(query_pt, std::back_inserter(candidates));
-//    bool found = false;
-//    for(size_t k = 0; k < candidates.size(); ++k){
-//      int cell_id = candidates[k]->id;
-//      // 准备 PatchPointWeightInCell 需要的 localnodecoord
-//      double local_coords[4][3];
-//      int node_indices[4];
 
-//      for(int n = 0; n < 4; ++n) {
-//        node_indices[n] = cell_node_idx[cell_node_ext[cell_id] + n];
-//        local_coords[n][0] = (*node_coord)(0, node_indices[n]);
-//        local_coords[n][1] = (*node_coord)(1, node_indices[n]);
-//        local_coords[n][2] = (*node_coord)(2, node_indices[n]);
-//      }
-//      double weights[NDIM + 1]; // 存储重心坐标
-//      // 调用你代码中已有的函数进行精确判断
-//      bool is_inside = PatchPointWeightInCell(query_coord, &local_coords[0][0], weights);
-//      if (is_inside){
-//        double interp_value = 0.0;
-//        for(int n = 0; n < 4; ++n) {
-//          // 获取节点上的值，这里假设是 th_Told_id
-//          double node_val = (*T_data)(0, node_indices[n]);
-//          interp_value += node_val * weights[n];
-//        }
-//        // 输出：坐标 + 单元ID + 插值结果
-//        outfile << q_num << "\t" << q_quad << "\t"<< q_x << "\t" << q_y << "\t" << q_z << "\t"
-//                << cell_id << "\t" << interp_value << endl;
 
-//        found = true;
-//        break;
-//      }
-//    }
+  //  // 输出文件
+  //  stringstream ss;
+  //  ss << "Thermal_Data_On_Patch_" << patch.getIndex() << ".dat";
+  //  ofstream outfile;
+  //  outfile.open(ss.str().c_str(), ios::out);
+  //  outfile << std::fixed << std::setprecision(12);
 
-//    // 可选：如果没找到（该点不在本Patch内），可以输出标识或跳过
-//    // if (!found) { ... }
+  //  string line;
+  //  while(getline(infile, line)){
+  //    stringstream buf(line);
+  //    double q_num,q_quad,q_x, q_y, q_z;
+  //    // 假设输入文件格式为: x y z
+  //    if(!(buf >> q_num >> q_quad >> q_x >> q_y >> q_z)) continue;
+  //    double query_coord[3] = {q_x, q_y, q_z};
+  //    CGAL_K::Point_3 query_pt(q_x, q_y, q_z);
+  //    // 7. 使用 Tree 查找包含该点的所有四面体（候选）
+  //    // 这里使用 any_intersected_primitive 或者 all_intersected_primitives
+  //    // 注意：Point 与 Tetrahedron 的 intersection 在 CGAL Kernel 中是支持的
+  //    std::vector<Tet_Tree::Primitive_id> candidates;
+  //    tree.all_intersected_primitives(query_pt, std::back_inserter(candidates));
+  //    bool found = false;
+  //    for(size_t k = 0; k < candidates.size(); ++k){
+  //      int cell_id = candidates[k]->id;
+  //      // 准备 PatchPointWeightInCell 需要的 localnodecoord
+  //      double local_coords[4][3];
+  //      int node_indices[4];
 
-//  }
-//  infile.close();
-//  outfile.close();
+  //      for(int n = 0; n < 4; ++n) {
+  //        node_indices[n] = cell_node_idx[cell_node_ext[cell_id] + n];
+  //        local_coords[n][0] = (*node_coord)(0, node_indices[n]);
+  //        local_coords[n][1] = (*node_coord)(1, node_indices[n]);
+  //        local_coords[n][2] = (*node_coord)(2, node_indices[n]);
+  //      }
+  //      double weights[NDIM + 1]; // 存储重心坐标
+  //      // 调用你代码中已有的函数进行精确判断
+  //      bool is_inside = PatchPointWeightInCell(query_coord, &local_coords[0][0], weights);
+  //      if (is_inside){
+  //        double interp_value = 0.0;
+  //        for(int n = 0; n < 4; ++n) {
+  //          // 获取节点上的值，这里假设是 th_Told_id
+  //          double node_val = (*T_data)(0, node_indices[n]);
+  //          interp_value += node_val * weights[n];
+  //        }
+  //        // 输出：坐标 + 单元ID + 插值结果
+  //        outfile << q_num << "\t" << q_quad << "\t"<< q_x << "\t" << q_y << "\t" << q_z << "\t"
+  //                << cell_id << "\t" << interp_value << endl;
+
+  //        found = true;
+  //        break;
+  //      }
+  //    }
+
+  //    // 可选：如果没找到（该点不在本Patch内），可以输出标识或跳过
+  //    // if (!found) { ... }
+
+  //  }
+  //  infile.close();
+  //  outfile.close();
 
 
   /// 取出本地PatchGeometry.

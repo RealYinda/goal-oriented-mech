@@ -40,7 +40,7 @@ FEM {
             solver_name = "HYPRE_PCG"
             solver_tol      = 1.0e-40                    // 解法器阈值
             max_iter = 5000
-            residual_tol= 1.0e-10
+            residual_tol= 1.0e-15
             solver_max_iter = 30000                      // 解法器最大迭代步数
             solver_min_iter = 1                         // 解法器最小迭代步数
             print_iter_info    = 1
@@ -77,7 +77,7 @@ FEM {
             solver_max_iter = 40000                      // 解法器最大迭代步数
             solver_min_iter = 1                         // 解法器最小迭代步数
             max_iter = 5000
-            residual_tol= 1.0e-10
+            residual_tol= 1.0e-12
             print_iter_info    = 1
         }
     }

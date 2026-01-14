@@ -35,7 +35,7 @@ ElasFlow::ElasFlow(
   d_patch_strategy = strategy;
 
   d_solver_db = input_db->getDatabase("Solver");
-  d_fem_db = input_db->getDatabase("FEM");
+  d_fem_db = input_db;
   d_solver_manager = solv::LinearSolverManager<NDIM>::getManager();
   d_solver_s = d_solver_manager->lookupLinearSolver(
         d_solver_db->getDatabase ("SolverT")->getString("solver_name"));
@@ -235,6 +235,8 @@ int ElasFlow::advanceLevel(
 
   //update #8 热计算
   th_num_intc_mat->computing(patch_level, current_time, actual_dt);
+  /// 调用数值构件接口函数,加载约束
+  th_num_intc_cons->computing(patch_level, current_time, actual_dt);
 
   /// 调用数值构件接口函数,计算并组装右端项
   th_num_intc_rhs->computing(patch_level, current_time, actual_dt);
@@ -242,8 +244,7 @@ int ElasFlow::advanceLevel(
   //  /// 调用数值构件接口函数,加载载荷
   //  th_num_intc_load->computing(patch_level, current_time, actual_dt);
 
-  /// 调用数值构件接口函数,加载约束
-  th_num_intc_cons->computing(patch_level, current_time, actual_dt);
+
 
   int mat_id_th = p_strategy->getTh_MatrixID();
   int vec_id_th = p_strategy->getTh_RHSID();
