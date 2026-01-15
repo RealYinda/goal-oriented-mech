@@ -1,0 +1,113 @@
+//
+// 文件名:     buildApplicationLib.h
+// 软件包:     JAUMIN
+// 版权　:     北京应用物理与计算数学研究所
+// 版本号:     $Revision: 0 $
+// 修改　:     $Date: Tue May 20 08:24:04 2014 $
+// 描述　:     将用户创建的形函数, 积分器, 单元, 材料等添加到相应管理器.
+// 类别　:     %Internal File% ( Don't delete this line )
+//
+
+/**
+ * @file   buildApplicationLib.h
+ * @author weibo zhao <zhao_weibo@iapcm.ac.cn>
+ * @date   Mon Aug 26 11:40:27 2013
+ *
+ * @brief
+ *
+ * 更新情况：1处
+ * @1：update #2 materials at 2017-04-20 by tong
+ */
+
+#include "LinearTet.h"
+#include "Pointer.h"
+#include "Array.h"
+
+#include "IntegratorManager.h"
+#include "ShapeFunctionManager.h"
+#include "ElementManager.h"
+#include "MaterialManager.h"
+#include "ShapeFunctionManager.h"
+#include "IntegratorManager.h"
+#include "Material.h"
+#include "TetrahedronShapeFunction.h"
+#include "TetrahedronIntegrator.h"
+
+#include "LinearTet.h"
+
+using namespace JAUMIN;
+
+void buildApplicationLib() {
+  /// 取出各个管理器(形函数, 积分器, 单元, 材料).
+  tbox::Pointer<ShapeFunctionManager<NDIM> > func_manager =
+      ShapeFunctionManager<NDIM>::getManager();
+  tbox::Pointer<IntegratorManager<NDIM> > integrator_manager =
+      IntegratorManager<NDIM>::getManager();
+  tbox::Pointer<ElementManager<NDIM> > ele_manager =
+      ElementManager<NDIM>::getManager();
+  tbox::Pointer<MaterialManager<NDIM> > material_manager =
+      MaterialManager<NDIM>::getManager();
+
+  /// 添加一个单元到单元管理器.
+  tbox::Pointer<LinearTet> linear_ele = new LinearTet("LinearTetrahedron");
+  ele_manager->addElement(linear_ele);
+
+  /// 添加一种材料到材料管理器.
+  //tbox::Pointer<Material> material = new Material("LinearTetrahedron");
+  //material_manager->addMaterial(material);
+  ////////////////////////////////////////////////////////////////////
+  //update: 添加五种材料到材料管理器
+  //@material_0:air
+  //@material_1:silicon
+  //@material_2:copper
+  //@material_3:gold
+  //@material_4:SiO2
+  //time:2017-04-20 @tong update #2
+  //////////////////////////////////////////////////////////////
+  tbox::Pointer<Material> material_0 = new Material("Air");
+  material_manager->addMaterial(material_0);
+  tbox::Pointer<Material> material_1 = new Material("Silicon");
+  material_manager->addMaterial(material_1);
+  tbox::Pointer<Material> material_2 = new Material("Copper");
+  material_manager->addMaterial(material_2);
+  tbox::Pointer<Material> material_3 = new Material("Gold");
+  material_manager->addMaterial(material_3);
+  tbox::Pointer<Material> material_4 = new Material("SiO2");
+  material_manager->addMaterial(material_4);
+  tbox::Pointer<Material> material_5 = new Material("SiN");
+  material_manager->addMaterial(material_5);
+  tbox::Pointer<Material> material_6 = new Material("Aluminum");
+  material_manager->addMaterial(material_6);
+  tbox::Pointer<Material> material_7 = new Material("Nickel");
+  material_manager->addMaterial(material_7);
+  tbox::Pointer<Material> material_8 = new Material("Solder_bump");
+  material_manager->addMaterial(material_8);
+  tbox::Pointer<Material> material_9 = new Material("Underfill");
+  material_manager->addMaterial(material_9);
+  tbox::Pointer<Material> material_10 = new Material("BCB");
+  material_manager->addMaterial(material_10);
+  tbox::Pointer<Material> material_11 = new Material("HT_m");
+  material_manager->addMaterial(material_11);
+  tbox::Pointer<Material> material_12 = new Material("MoCu10");
+  material_manager->addMaterial(material_12);
+  tbox::Pointer<Material> material_13 = new Material("MoCu");
+  material_manager->addMaterial(material_13);
+  tbox::Pointer<Material> material_14 = new Material("GaAs");
+  material_manager->addMaterial(material_14);
+  tbox::Pointer<Material> material_15 = new Material("GaN");
+  material_manager->addMaterial(material_15);
+  tbox::Pointer<Material> material_16 = new Material("Al2O3");
+  material_manager->addMaterial(material_16);
+  tbox::Pointer<Material> material_17 = new Material("Alloy");
+  material_manager->addMaterial(material_17);
+
+  /// 添加一个形函数到形函数管理器.
+  tbox::Pointer<BaseShapeFunction<NDIM> > func =
+      new TetrahedronShapeFunction("LinearTetrahedron");
+  func_manager->addShapeFunction(func);
+
+  /// 添加一个积分器到积分器管理器.
+  tbox::Pointer<BaseIntegrator<NDIM> > integrator =
+      new TetrahedronIntegrator(1, "LinearTetrahedron");
+  integrator_manager->addIntegrator(integrator);
+}

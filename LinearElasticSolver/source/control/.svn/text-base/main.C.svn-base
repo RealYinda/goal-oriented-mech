@@ -1,8 +1,11 @@
-/// 文件名:	main.C
-/// 软件包:	goal-oriented-mech
-/// 开发者:	RealYindaWang
-/// 修改:	Wed Jan 14 16:56:31 CST 2026 $
-/// 描述:	主函数
+//
+// 文件名:     main.C
+// 软件包:     JAUMIN
+// 版权　:     北京应用物理与计算数学研究所
+// 版本号:     $Revision: 0 $
+// 修改　:     $Date: Tue May 20 08:23:01 2014 $
+// 描述　:     主函数
+//
 
 #include "GridGeometry.h"
 #include "GridTopology.h"
@@ -42,8 +45,8 @@ static void prefixInputDirName(const string& input_filename,
     path_name = input_filename.substr(0, slash_pos + 1);
 
   string mesh_file = input_db->getDatabase("GridGeometry")
-      ->getDatabase("MeshImportationParameter")
-      ->getString("file_name");
+                         ->getDatabase("MeshImportationParameter")
+                         ->getString("file_name");
 
   slash_pos = mesh_file.find_first_of('/');
   if (slash_pos != 0) {
@@ -143,10 +146,10 @@ int main(int argc, char* argv[]) {
     /// 创建计时器.
     tbox::Pointer<tbox::Timer> t_write_javis_data =
         tbox::TimerManager::getManager()->getTimer(
-          "apps::main::write_javis_data");
+            "apps::main::write_javis_data");
     tbox::Pointer<tbox::Timer> t_write_restart =
         tbox::TimerManager::getManager()->getTimer(
-          "apps::main::write_restart_data");
+            "apps::main::write_restart_data");
 
     /// 创建网格几何对象.
     tbox::Pointer<hier::GridGeometry<NDIM> > grid_geometry =
@@ -172,16 +175,16 @@ int main(int argc, char* argv[]) {
     tbox::Pointer<PatchStrategy> elas_patch =
         new PatchStrategy("elas", fem_db, true);
     tbox::Pointer<ElasFlow> level_integrator =
-        new ElasFlow("elas", elas_patch, fem_db);
+        new ElasFlow("elas", elas_patch, fem_db->getDatabase("Solver"));
 
     /*******************************************************************************
      *                    创建网格片层次结构类对象 *
      *******************************************************************************/
     tbox::Pointer<algs::HierarchyTimeIntegrator<NDIM> > time_integrator =
         new algs::HierarchyTimeIntegrator<NDIM>(
-          "HierarchyTimeIntegrator",
-          input_db->getDatabase("HierarchyTimeIntegrator"), patch_hierarchy,
-          level_integrator, true);
+            "HierarchyTimeIntegrator",
+            input_db->getDatabase("HierarchyTimeIntegrator"), patch_hierarchy,
+            level_integrator, true);
 
     /*******************************************************************************
      *                                  初 始 化 网 格 层 *
@@ -194,7 +197,7 @@ int main(int argc, char* argv[]) {
     tbox::Pointer<appu::JaVisDataWriter<NDIM> > javis_data_writer;
     if (javis_dump_interval > 0) {
       javis_data_writer = new appu::JaVisDataWriter<NDIM>(
-            "elas_JaVis_Writer", javis_dump_dirname, javis_number_procs_per_file);
+          "elas_JaVis_Writer", javis_dump_dirname, javis_number_procs_per_file);
 
       elas_patch->registerPlotData(javis_data_writer);
     }
@@ -237,37 +240,23 @@ int main(int argc, char* argv[]) {
 
       tbox::pout << "\n\n++++++++++++++++++++++++++++++++++++++++++++" << endl;
       tbox::pout << "At begining of timestep # " << iteration_num << endl;
-
+      tbox::pout << "Simulation time is " << loop_time << endl;
+      tbox::pout << "++++++++++++++++++++++++++++++++++++++++++++\n\n" << endl;
       // 将数值解推进一个时间步, 返回其时间步长.
       dt_actual = time_integrator->advanceHierarchy();
 
       loop_time += dt_actual;
-      bool d_is_time_domain_solve = fem_db->getBool("time_domain_solving");
 
-      if(!d_is_time_domain_solve){
-        tbox::pout << "\n\n++++++++++++++++++++++++++++++++++++++++++++" << endl;
-        tbox::pout << "At end of solving static status " << endl;
-        tbox::pout << "++++++++++++++++++++++++++++++++++++++++++++\n\n" << endl;
-        loop_time = loop_time_end;
-      }
-      else{
-        tbox::pout << "Simulation time is " << loop_time << endl;
-        tbox::pout << "++++++++++++++++++++++++++++++++++++++++++++\n\n" << endl;
-
-        tbox::pout << "\n\n++++++++++++++++++++++++++++++++++++++++++++" << endl;
-        tbox::pout << "At end of solving # " << iteration_num << endl;
-        tbox::pout << "++++++++++++++++++++++++++++++++++++++++++++\n\n" << endl;
-
-      }
-
-
+      tbox::pout << "\n\n++++++++++++++++++++++++++++++++++++++++++++" << endl;
+      tbox::pout << "At end of solving # " << iteration_num << endl;
+      tbox::pout << "++++++++++++++++++++++++++++++++++++++++++++\n\n" << endl;
 
       if ((restart_dump_interval > 0) &&
           ((iteration_num % restart_dump_interval) == 0)) {
         restart_manager->writeRestartFile(restart_dump_dirname, iteration_num);
       }
       // 输出可视化数据.
-      if (javis_dump_interval > 0 && iteration_num % 1 == 0) {
+      if (javis_dump_interval > 0) {
         t_write_javis_data->start();
         javis_data_writer->writePlotData(time_integrator->getPatchHierarchy(),
                                          iteration_num, loop_time);

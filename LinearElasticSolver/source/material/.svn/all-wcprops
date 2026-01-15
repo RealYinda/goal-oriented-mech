@@ -1,0 +1,41 @@
+K 25
+svn:wc:ra_dav:version-url
+V 64
+/svn/JAUMIN/!svn/ver/1563/trunk/examples/Elastic/source/material
+END
+BaseMaterial.h
+K 25
+svn:wc:ra_dav:version-url
+V 79
+/svn/JAUMIN/!svn/ver/1563/trunk/examples/Elastic/source/material/BaseMaterial.h
+END
+Material.C
+K 25
+svn:wc:ra_dav:version-url
+V 75
+/svn/JAUMIN/!svn/ver/1563/trunk/examples/Elastic/source/material/Material.C
+END
+MaterialManager.h
+K 25
+svn:wc:ra_dav:version-url
+V 82
+/svn/JAUMIN/!svn/ver/1563/trunk/examples/Elastic/source/material/MaterialManager.h
+END
+Material.h
+K 25
+svn:wc:ra_dav:version-url
+V 75
+/svn/JAUMIN/!svn/ver/1563/trunk/examples/Elastic/source/material/Material.h
+END
+BaseMaterial.C
+K 25
+svn:wc:ra_dav:version-url
+V 79
+/svn/JAUMIN/!svn/ver/1563/trunk/examples/Elastic/source/material/BaseMaterial.C
+END
+MaterialManager.C
+K 25
+svn:wc:ra_dav:version-url
+V 82
+/svn/JAUMIN/!svn/ver/1563/trunk/examples/Elastic/source/material/MaterialManager.C
+END

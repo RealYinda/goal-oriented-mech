@@ -1,0 +1,41 @@
+K 25
+svn:wc:ra_dav:version-url
+V 69
+/svn/JAUMIN/!svn/ver/1563/trunk/examples/Elastic/source/shapefunction
+END
+BaseShapeFunction.C
+K 25
+svn:wc:ra_dav:version-url
+V 89
+/svn/JAUMIN/!svn/ver/1563/trunk/examples/Elastic/source/shapefunction/BaseShapeFunction.C
+END
+ShapeFunctionManager.C
+K 25
+svn:wc:ra_dav:version-url
+V 92
+/svn/JAUMIN/!svn/ver/1563/trunk/examples/Elastic/source/shapefunction/ShapeFunctionManager.C
+END
+BaseShapeFunction.h
+K 25
+svn:wc:ra_dav:version-url
+V 89
+/svn/JAUMIN/!svn/ver/1563/trunk/examples/Elastic/source/shapefunction/BaseShapeFunction.h
+END
+ShapeFunctionManager.h
+K 25
+svn:wc:ra_dav:version-url
+V 92
+/svn/JAUMIN/!svn/ver/1563/trunk/examples/Elastic/source/shapefunction/ShapeFunctionManager.h
+END
+TetrahedronShapeFunction.C
+K 25
+svn:wc:ra_dav:version-url
+V 96
+/svn/JAUMIN/!svn/ver/1563/trunk/examples/Elastic/source/shapefunction/TetrahedronShapeFunction.C
+END
+TetrahedronShapeFunction.h
+K 25
+svn:wc:ra_dav:version-url
+V 96
+/svn/JAUMIN/!svn/ver/1563/trunk/examples/Elastic/source/shapefunction/TetrahedronShapeFunction.h
+END

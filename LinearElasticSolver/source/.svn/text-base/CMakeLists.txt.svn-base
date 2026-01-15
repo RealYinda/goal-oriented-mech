@@ -1,0 +1,35 @@
+cmake_minimum_required(VERSION 2.6)
+# project name and languages 
+project(JAUMIN_example CXX C Fortran)
+
+#set(JAUMIN "/usr/local/jaumin")
+if(NOT JAUMIN)
+  set(JAUMIN "${PROJECT_SOURCE_DIR}/../../../build/jaumin")
+endif()
+#set(THIRDLIB "/usr/local/thirdlib/gnu")
+
+# one can set CDIM and CREL before including 'CMakeLists.config', 
+# by default CDIM = 2, CREL = dbg
+#set(CREL dbg)
+
+if(NOT CDIM)
+  set(CDIM 3)
+endif()
+
+if(NOT CREL)
+  set(CREL dbg)
+endif()
+
+include(${JAUMIN}/config/CMakeLists.config)
+message("complile with CDIM: ${CDIM}, CREL: ${CREL}")
+
+include_directories(element integrator solver load constraint material shapefunction)
+file(GLOB_RECURSE src_files ./*.C ./fortran/${CDIM}d/*.f)
+include_directories(element interface integrator solver constraint shapefunction )
+
+
+
+include_directories(${THIRDLIB}/ttgen/lib)
+link_directories(${THIRDLIB}/tetgen/lib)
+add_executable(main${CDIM}d ${src_files})
+target_link_libraries(main${CDIM}d ${LIBJAUMIN} ${LIBJAUMINDEPEND})
