@@ -1,11 +1,8 @@
-//
-// 文件名:     PatchStrategy.C
-// 软件包:     JAUMIN
-// 版权　:     北京应用物理与计算数学研究所
-// 版本号:     $Revision: 0 $
-// 修改　:     $Date: Tue May 20 08:26:35 2014 $
-// 描述　:     网格片策略类派生类实现.
-//
+/// 文件名:	PatchStrategy.C
+/// 软件包:	goal-oriented-mech
+/// 开发者:	RealYindaWang
+/// 修改:	Wed Jan 14 16:56:31 CST 2026 $
+/// 描述:   网格片策略类派生类实现.
 
 /***************************************************************************************
 ***************************************更新说明*******************************************
@@ -312,6 +309,36 @@ void PatchStrategy::registerModelVariable() {
   d_Cell_volume_id=db->registerVariableAndContext(Cell_volume, current,1);
 
 
+  /**
+    *****误差估计部分*****
+    **/
+  /// 正向问题的面跳量误差
+  tbox::Pointer<pdat::FaceVariable<NDIM, double> > primal_face_jump_stress =
+      new pdat::FaceVariable<NDIM, double>("primal_face_jump_stress",NDIM,1);
+
+  /// 伴随问题的面跳量误差
+  tbox::Pointer<pdat::FaceVariable<NDIM, double> > dual_face_jump_stress =
+      new pdat::FaceVariable<NDIM, double>("dual_face_jump_stress",NDIM,1);
+
+  /// 正向问题的体误差统计
+  tbox::Pointer<pdat::CellVariable<NDIM, double> > primal_cell_error_MECHANICS =
+      new pdat::CellVariable<NDIM, double>("primal_cell_error_MECHANICS",1,1);
+
+  /// 伴随问题的体误差统计
+  tbox::Pointer<pdat::CellVariable<NDIM, double> > dual_cell_error_MECHANICS =
+      new pdat::CellVariable<NDIM, double>("primal_cell_error_MECHANICS",1,1);
+
+  /// 正向问题的体误差统计
+  tbox::Pointer<pdat::CellVariable<NDIM, double> > total_cell_error_MECHANICS =
+      new pdat::CellVariable<NDIM, double>("total_cell_error_MECHANICS",1,1);
+
+  primal_face_jump_stress_id=db->registerVariableAndContext(primal_face_jump_stress, current,1);
+  dual_face_jump_stress_id=db->registerVariableAndContext(dual_face_jump_stress, current,1);
+  primal_cell_error_MECHANICS_id=db->registerVariableAndContext(primal_cell_error_MECHANICS, current,0);
+  dual_cell_error_MECHANICS_id=db->registerVariableAndContext(dual_cell_error_MECHANICS, current,0);
+  total_cell_error_MECHANICS_id=db->registerVariableAndContext(total_cell_error_MECHANICS, current,0);
+
+
 }
 
 
@@ -355,6 +382,12 @@ void PatchStrategy::initializeComponent(
 
     component->registerInitPatchData(d_Cell_jacobian_id);
     component->registerInitPatchData(d_Cell_volume_id);
+
+    /// 注册误差估计数据片
+    component->registerInitPatchData(primal_face_jump_stress_id);
+    component->registerInitPatchData(primal_cell_error_MECHANICS_id);
+    component->registerInitPatchData(dual_face_jump_stress_id);
+    component->registerInitPatchData(dual_cell_error_MECHANICS_id);
     /// 将dofInfo中的数据片注册到初始化构件。
     d_dof_info->registerToInitComponent(component);
     //update #8 @4
@@ -393,7 +426,9 @@ void PatchStrategy::initializeComponent(
     component->registerCommunicationPatchData(d_contained_domain_id, d_contained_domain_id);
     component->registerCommunicationPatchData(th_Told_id, th_Told_id);
     component->registerCommunicationPatchData(th_Tolder_id, th_Tolder_id);
-  } else if (component_name == "POSTPROCESS") {        // 数值构件, 计算应力.
+  } else if (component_name == "ERROR_EST") {        // 数值构件, 计算应力.
+    component->registerCommunicationPatchData(d_improved_coefficient_id, d_improved_coefficient_id);
+  }else if (component_name == "POSTPROCESS") {        // 数值构件, 计算应力.
     component->registerCommunicationPatchData(d_improved_coefficient_id, d_improved_coefficient_id);
   }else if (component_name == "DATAEXPLORE") {        // 数值构件, 计算应力.
   }else if (component_name == "THERMALPOST") {        // 数值构件, 计算应力.
@@ -1723,6 +1758,18 @@ void PatchStrategy::StressRecovery(hier::Patch<NDIM>& patch, const double time,
 
 
 }
+
+/// 应力误差的估计
+void PatchStrategy::STRESS_ErrorEst(hier::Patch<NDIM>& patch, const double time,
+                                   const double dt, const string& component_name){
+  int num_faces = patch.getNumberOfFaces(0);
+
+
+}
+
+
+
+
 /// 后处理恢复指定体上的应力
 void PatchStrategy::PostprocessStress(hier::Patch<NDIM>& patch, const double time,
                                       const double dt, const string& component_name){
@@ -3322,6 +3369,11 @@ void PatchStrategy::registerPlotData(
   javis_writer->registerPlotQuantity("voltage_plot","SCALAR",E_plot_id);
   javis_writer->registerPlotQuantity("Emag","SCALAR",E_mag_id);
   javis_writer->registerPlotQuantity("mat_plot","SCALAR",material_num_id);
+  javis_writer->registerPlotQuantity("Stress error (primal)","SCALAR",primal_cell_error_MECHANICS_id);
+  javis_writer->registerPlotQuantity("Stress error (dual)","SCALAR",dual_cell_error_MECHANICS_id);
+
+  javis_writer->registerPlotQuantity("Stress error (total)","SCALAR",total_cell_error_MECHANICS_id);
+
 }
 
 /*************************************************************************

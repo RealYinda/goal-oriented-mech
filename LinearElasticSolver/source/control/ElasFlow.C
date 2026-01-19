@@ -74,6 +74,9 @@ void ElasFlow::initializeLevelIntegrator(
   // 数值构件: 计算应力.
   d_num_intc_stress = new algs::NumericalIntegratorComponent<NDIM>(
         "STRESS", d_patch_strategy, manager);
+  /// 数值构件：数值误差
+  d_num_intc_error_est = new algs::NumericalIntegratorComponent<NDIM>(
+        "ERROR_EST", d_patch_strategy, manager);
   /// 数值构件：更新恢复应力
   d_num_intc_recovery = new algs::NumericalIntegratorComponent<NDIM>(
         "RECOVERY", d_patch_strategy, manager);
@@ -202,12 +205,13 @@ int ElasFlow::advanceLevel(
   /// 获取参数
   tbox::Pointer<PatchStrategy> p_strategy = d_patch_strategy;
 
-  tbox::pout<<"电场方程求解中...... "<<endl;
+
   t_fem_solve->start();
   double max[3]={0,0,0};
 #if 0
   ///////////////////////////////////////////////////////////////////////////////////////////
   //update #9 电计算
+  tbox::pout<<"电场方程求解中...... "<<endl;
   E_num_intc_mat->computing(patch_level, current_time, actual_dt);
 
   /// 调用数值构件接口函数,计算并组装右端项
@@ -230,6 +234,7 @@ int ElasFlow::advanceLevel(
 
 
   ///////////////////////////////////////////////////////////////////////////////////////////
+  #if 0
   tbox::pout<<"热传导方程求解中...... "<<endl;
 
 
@@ -263,11 +268,12 @@ int ElasFlow::advanceLevel(
     outdata.open("T_max",ios::app);
     outdata<<current_time+actual_dt<<"\t"<<max[0]<<endl;
   }
+  #endif
   /////////////////////////////////////////////////////////////////////////////////////////////
-  #if 0
+  #if 1
   //计时开始函数
   t_fem_build_matrix->start();
-  tbox::pout<<"Compute Cauchy momentum equations...... "<<endl;
+  tbox::pout<<"应力方程求解中...... "<<endl;
   /// 调用数值构件接口函数,计算并组装矩阵
   //该函数会自动调用用户实现的 algs::StandardComponentPatchStrategy::computeOnPatch().
   d_num_intc_mat->computing(patch_level, current_time, actual_dt);

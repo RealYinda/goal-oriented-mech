@@ -160,6 +160,9 @@ private:
   tbox::Pointer<algs::NumericalIntegratorComponent<NDIM> >
   d_num_intc_displacement;
 
+  /*!@brief 数值构件: 误差估计模块 */
+  tbox::Pointer<algs::NumericalIntegratorComponent<NDIM> > d_num_intc_error_est;
+
   /*!@brief 数值构件: 更新恢复应力 */
   tbox::Pointer<algs::NumericalIntegratorComponent<NDIM> > d_num_intc_recovery;
   /*!@brief 数值构件: 后处理恢复应力 */

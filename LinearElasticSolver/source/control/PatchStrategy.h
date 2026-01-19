@@ -1,11 +1,10 @@
-//
-// 文件名:     PatchStrategy.h
-// 软件包:     JAUMIN
-// 版权　:     北京应用物理与计算数学研究所
-// 版本号:     $Revision: 0 $
-// 修改　:     $Date: Tue May 20 08:18:29 2014 $
-// 描述　:     网格片策略类派生类.
-//
+/// 文件名:	PatchStrategy.h
+/// 软件包:	goal-oriented-mech
+/// 开发者:	RealYindaWang
+/// 修改:	Wed Jan 14 16:56:31 CST 2026 $
+/// 描述:   网格片策略类派生类.
+
+
 // 根新情况：
 // update #0: 1处  @1：添加头文件
 // update #1: 1处  @1：添加id声明
@@ -394,6 +393,16 @@ public:
      */
   void StressRecovery(hier::Patch<NDIM>& patch, const double time,
                       const double dt, const string& component_name);
+
+  /**
+     * @brief StressErrorEst: 应力的误差估计
+     * @param patch
+     * @param time
+     * @param dt
+     * @param component_name
+     */
+  void STRESS_ErrorEst(hier::Patch<NDIM>& patch, const double time,
+                      const double dt, const string& component_name);
   /**
      * @brief PostprocessStress: 完成恢复应力的后处理
      * @param patch
@@ -749,6 +758,17 @@ private:
   /// 戳啦,2不用设置
   int d_contained_domain_id;
 
+  /// 面上的应力跳量
+  int primal_face_jump_stress_id;
+  /// 分析应力的误差
+  int primal_cell_error_MECHANICS_id;
+
+  int total_cell_error_MECHANICS_id;
+
+  /// 可能使用:面上的伴随应力跳量
+  int dual_face_jump_stress_id;
+  /// 可能使用:面上的分析应力伴随误差
+  int dual_cell_error_MECHANICS_id;
 
   /// For TetQuad
   int d_Cell_volume_id;
