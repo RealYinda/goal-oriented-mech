@@ -118,6 +118,19 @@ void BaseElement<DIM>::buildElementRHS(
         "is right! ");
 }
 
+/************************************************************************
+ * 建立单元右端项
+ *************************************************************************/
+template <int DIM>
+void BaseElement<DIM>::buildDualElementRHS(
+    tbox::Array<hier::DoubleVector<NDIM> > real_vertex, const double dt,
+    const double time, tbox::Pointer<tbox::Vector<double> > ele_vec,
+    NewmarkData *d_newmark,int entity_id, tbox::Array<double> Mises) {
+  TBOX_WARNING(
+        "Function buildDualElementRHS is not implemented, please make sure your code "
+        "is right! ");
+}
+
 /////////////////////////////////////////////////update #8//////////////////////////////////////////////
 
 /**

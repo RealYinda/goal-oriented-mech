@@ -37,8 +37,10 @@ ElasFlow::ElasFlow(
   d_solver_db = input_db->getDatabase("Solver");
   d_fem_db = input_db;
   d_solver_manager = solv::LinearSolverManager<NDIM>::getManager();
-  d_solver_s = d_solver_manager->lookupLinearSolver(
-        d_solver_db->getDatabase ("SolverT")->getString("solver_name"));
+  d_solver_s_primal = d_solver_manager->lookupLinearSolver(
+        d_solver_db->getDatabase ("SolverStress")->getString("solver_name"));
+  d_solver_s_dual = d_solver_manager->lookupLinearSolver(
+        d_solver_db->getDatabase ("SolverDualStress")->getString("solver_name"));
   d_solver_th = d_solver_manager->lookupLinearSolver(
         d_solver_db->getDatabase ("SolverTH")->getString("solver_name"));
   d_solver_E = d_solver_manager->lookupLinearSolver(
@@ -99,6 +101,9 @@ void ElasFlow::initializeLevelIntegrator(
   // 数值构件: 计算右端项.
   d_num_intc_rhs = new algs::NumericalIntegratorComponent<NDIM>(
         "RHS", d_patch_strategy, manager);
+  // 数值构件: 计算伴随右端项.
+  d_num_intc_dual_rhs = new algs::NumericalIntegratorComponent<NDIM>(
+        "DUAL_RHS", d_patch_strategy, manager);
   // 数值构件: 计算载荷.
   d_num_intc_load = new algs::NumericalIntegratorComponent<NDIM>(
         "LOAD", d_patch_strategy, manager);
@@ -295,12 +300,12 @@ int ElasFlow::advanceLevel(
   int sol_id = p_strategy->getSolutionID();
 
   /// 设置解法器
-  d_solver_s->setMatrix(mat_id);
-  d_solver_s->setRHS(vec_id);
+  d_solver_s_primal->setMatrix(mat_id);
+  d_solver_s_primal->setRHS(vec_id);
 
   tbox::pout<<"solving "<<endl;
   /// 求解
-  d_solver_s->solve(first_step, sol_id, patch_level, d_solver_db->getDatabase ("SolverT"));
+  d_solver_s_primal->solve(first_step, sol_id, patch_level, d_solver_db->getDatabase ("SolverStress"));
   t_fem_solve->stop();
   /// 调用数值构件接口函数, 根据位移更新结点坐标.
   d_num_intc_displacement->computing(patch_level, current_time, actual_dt,false);

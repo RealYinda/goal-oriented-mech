@@ -648,8 +648,8 @@ void LinearTet::buildElementRHS(
   //计算热应变
   //应变矩阵=th_stress[1 1 1 0 0 0]
   double alpha=material->getAlpha(e_Temperature);
-  //  double th_stress=alpha*(e_Temperature-293.15);
-  double th_stress=alpha*(e_Temperature-650.);
+  double th_stress=alpha*(e_Temperature-293.15);
+//  double th_stress=alpha*(e_Temperature-650.);
   //取出积分点处基函数梯度值
   tbox::Array<tbox::Array<tbox::Array<double> > > bas_grad =
       shape_func->gradient(real_vertex, quad_pnt);
@@ -764,6 +764,14 @@ void LinearTet::buildElementRHS(
         BETA*((d_newmark[i1]).v_rhs_older[j1])+(*solutions_vec)[i1*NDIM+j1];
   }
 #endif
+}
+
+/// 计算伴随的右端项
+void LinearTet::buildDualElementRHS(
+    tbox::Array<hier::DoubleVector<NDIM> > real_vertex, const double dt,
+    const double time, tbox::Pointer<tbox::Vector<double> > ele_vec,
+    NewmarkData *d_newmark,int entity_id,tbox::Array<double> Mises){
+
 }
 
 /////////////////////////////////////////////////update #8//////////////////////////////////////////////

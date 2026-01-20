@@ -247,6 +247,10 @@ void PatchStrategy::registerModelVariable() {
   d_rhs_id = db->registerVariableAndContext(rhs, current, 1);
   d_matrix_id = db->registerVariableAndContext(matrix, current, 1);
 
+
+
+
+
   d_stress_id = db->registerVariableAndContext(stress, current);
   d_plot_id = db->registerVariableAndContext(plot, current);
 
@@ -339,6 +343,14 @@ void PatchStrategy::registerModelVariable() {
   total_cell_error_MECHANICS_id=db->registerVariableAndContext(total_cell_error_MECHANICS, current,0);
 
 
+  /// 伴随方程的矩阵形式
+  DECLARE_MATVEC_VARIABLE(dual_solution, Vector, double, d_dof_info);  // 向量变量， 解向量
+  DECLARE_MATVEC_VARIABLE(dual_rhs, Vector, double, d_dof_info);  // 向量变量， 右端项
+  DECLARE_MATVEC_VARIABLE(dual_matrix, CSRMatrix, double, d_dof_info);  // 矩阵变量， 矩阵
+  REGISTER_VARIABLE(d_dual_STRESS_solution_id, dual_solution, current, 1);
+  REGISTER_VARIABLE(d_dual_STRESS_rhs_id, dual_rhs, current, 1);
+
+
 }
 
 
@@ -396,6 +408,10 @@ void PatchStrategy::initializeComponent(
     component->registerPatchData(d_matrix_id);
     component->registerPatchData(d_solution_id);
     component->registerPatchData(d_rhs_id);
+
+    component->registerPatchData(d_dual_STRESS_solution_id);
+    component->registerPatchData(d_dual_STRESS_rhs_id);
+
     //update #6 @3
     component->registerPatchData(d_solution_old_id);
     component->registerPatchData(d_solution_older_id);
@@ -417,6 +433,8 @@ void PatchStrategy::initializeComponent(
     component->registerCommunicationPatchData(d_solution_id, d_solution_id);
     component->registerCommunicationPatchData(th_Told_id, th_Told_id);
     component->registerCommunicationPatchData(th_Tolder_id, th_Tolder_id);
+  } else if (component_name == "DUAL_RHS") {   // 数值构件，计算右端项.
+    component->registerCommunicationPatchData(d_dual_STRESS_solution_id, d_dual_STRESS_solution_id);
   } else if (component_name == "DISPLACEMENT") {  // 数值构件, 更新位移.
     component->registerCommunicationPatchData(d_solution_id, d_solution_id);
   } else if (component_name == "STRESS") {        // 数值构件, 计算应力.
@@ -912,6 +930,8 @@ void PatchStrategy::computeOnPatch(hier::Patch<NDIM>& patch, const double time,
     applyE_Constraint(patch, time, dt, component_name);
   } else if (component_name == "E_PLOT") {
     Electric_PostProcesing(patch, time, dt, component_name);
+  } else if (component_name == "DUAL_RHS") {
+    buildSTRESSdualRHSOnPatch(patch, time, dt, component_name);
   } else {
     TBOX_ERROR(" PatchStrategy :: component name is error! ");
   }
@@ -2271,8 +2291,141 @@ void PatchStrategy::buildRHSOnPatch(hier::Patch<NDIM>& patch, const double time,
 
     /// 计算单元右端项.
     /// Vinta Yin-Da Wang:静力学
-    T_val[0] = 650.;T_val[1] = 650.;T_val[2] = 650.;T_val[3] = 650.;
-    T_val[0] = 300.;T_val[1] = 300.;T_val[2] = 300.;T_val[3] = 300.;
+    //    T_val[0] = 650.;T_val[1] = 650.;T_val[2] = 650.;T_val[3] = 650.;
+    //    T_val[0] = 300.;T_val[1] = 300.;T_val[2] = 300.;T_val[3] = 300.;
+    ele->buildElementRHS(vertex, dt, time, ele_vec, d_newmark, (*materialid_data)(0,i),T_val,Tolder_val);
+    for (int ii = 0; ii < n_dof; ++ii)
+      vec_data->addVectorValue(node_mapping[ii], (*ele_vec)[ii]);
+  }
+}
+
+void PatchStrategy::buildSTRESSdualRHSOnPatch(hier::Patch<NDIM>& patch, const double time,
+                                    const double dt,
+                                    const string& component_name) {
+
+  /// 取出本地PatchGeometry.
+  tbox::Pointer<hier::PatchGeometry<NDIM> > patch_geo =
+      patch.getPatchGeometry();
+  /// 取出本地PatchTopology.
+  tbox::Pointer<hier::PatchTopology<NDIM> > patch_top =
+      patch.getPatchTopology();
+  /// 取出本地Patch的结点坐标数组.
+  tbox::Pointer<pdat::NodeData<NDIM, double> > node_coord =
+      patch_geo->getNodeCoordinates();
+  int* dof_map = d_dof_info->getDOFMapping(patch, hier::EntityUtilities::NODE);
+  tbox::Pointer<pdat::VectorData<NDIM, double> > vec_data =
+      patch.getPatchData(d_rhs_id);
+
+  /// 获取单元对应实体编号数组对象 update #1  @8 -05-05pm
+  tbox::Pointer<pdat::CellData<NDIM, int> > entityid_data =
+      patch.getPatchData(d_EntityIdOfCell_id);
+  tbox::Pointer<pdat::CellData<NDIM, int> > materialid_data =
+      patch.getPatchData(material_num_id);
+
+  /////////////////////////////////////////update #6 @5//////////////////////////////////////
+  //@param1 vec_DispData:当前时刻单元解向量
+  //@param1 vec_DispData_older:前两步单元解向量
+  //@param2 vec_DispData_old:前一步单元解向量
+  //@param3 vec_RhsData_older:前两步单元右端项
+  //@param4 vec_RhsData_old:前一步单元右端项
+  tbox::Pointer<pdat::VectorData<NDIM, double> > vec_DispData =
+      patch.getPatchData(d_solution_id);
+  tbox::Pointer<pdat::VectorData<NDIM, double> > vec_DispData_older =
+      patch.getPatchData(d_solution_older_id);
+  tbox::Pointer<pdat::VectorData<NDIM, double> > vec_DispData_old =
+      patch.getPatchData(d_solution_old_id);
+  tbox::Pointer<pdat::VectorData<NDIM, double> > vec_RhsData_older =
+      patch.getPatchData(d_rhs_older_id);
+  tbox::Pointer<pdat::VectorData<NDIM, double> > vec_RhsData_old =
+      patch.getPatchData(d_rhs_old_id);
+
+  //update #8 取前一步的温度分布
+  tbox::Pointer<pdat::NodeData<NDIM, double> > T_data =
+      patch.getPatchData(th_Told_id);//
+  tbox::Pointer<pdat::NodeData<NDIM, double> > Tolder_data =
+      patch.getPatchData(th_Tolder_id);//
+
+  // cout<<" building RHS"<<endl;
+  //update #6 @6
+  //更新前两步、前一步的解向量和右端项的值
+  int num_nodes = patch.getNumberOfNodes(1);//取本地patch节点数目
+  for (int i2 = 0; i2 < NDIM * num_nodes; ++i2) {
+    //更新前两步及前一步的解向量值
+    vec_DispData_older->getPointer()[i2] = vec_DispData_old->getPointer()[i2];
+    vec_DispData_older->getPointer()[i2] = vec_DispData->getPointer()[i2];
+    //更新前两步及前一步的右端项值
+    vec_RhsData_older->getPointer()[i2] = vec_RhsData_old->getPointer()[i2];
+    vec_RhsData_old->getPointer()[i2] = vec_data->getPointer()[i2];
+  }
+  //////////////////////////////////////////////////////////////////////////////////////////////
+
+  /// 获取单元周围结点的索引关系.
+  tbox::Array<int> can_extent, can_indices;
+  patch_top->getCellAdjacencyNodes(can_extent, can_indices);
+
+  /// 取出本地Patch的单元数目.
+  int num_cells = patch.getNumberOfCells(1);
+  //  int num_nodes = patch.getNumberOfNodes(0);
+
+  for (int i = 0; i < num_cells; ++i) {
+    int n_vertex = can_extent[i + 1] - can_extent[i];
+    int n_dof = NDIM * n_vertex;
+
+    //存储上一时刻单元节点温度
+    tbox::Array<double> T_val(n_vertex); //当前温度
+    tbox::Array<double> Tolder_val(n_vertex);
+
+    /**< 该单元的结点坐标及自由度映射 */
+    tbox::Array<hier::DoubleVector<NDIM> > vertex(n_vertex);
+
+    ////////////////////////////////////////////update #6 @7////////////////////////////////////////
+    //定义一个结构体数组，数量为单元的节点数，
+    //内容为Newmark-beta方法所需的解向量及右端项值，具体见MacrosManager.h中的相关定义
+    //@param d_newmark[i]:单元的第i个节点的NewmarkData
+    //其中：
+    //@param1 v_solution_older:前两步单元解向量
+    //@param2 v_solution_old:前一步单元解向量
+    //@param3 v_rhs_older:前两步单元右端项
+    //@param4 v_rhs_old:前一步单元右端项
+    NewmarkData d_newmark[n_vertex];
+
+    //赋值
+    for (int i1 = 0, j = can_extent[i]; i1 < n_vertex; ++i1, ++j) {
+      for (int k = 0; k < NDIM; ++k) {
+        //VectorData不支持(*v)(i,j)的索引方式
+        d_newmark[i1].v_solution_older[k] = vec_DispData_older->getPointer()[can_indices[j]*NDIM+k];
+        d_newmark[i1].v_solution_old[k] = vec_DispData_old->getPointer()[can_indices[j]*NDIM+k];
+        d_newmark[i1].v_rhs_older[k] = vec_RhsData_older->getPointer()[can_indices[j]*NDIM+k];
+        d_newmark[i1].v_rhs_old[k] = vec_RhsData_old->getPointer()[can_indices[j]*NDIM+k];
+      }
+    }
+    //////////////////////////////////////////////////////////////////////////////////////////////
+
+    tbox::Array<int> node_mapping(n_dof);
+
+    for (int i1 = 0, j = can_extent[i]; i1 < n_vertex; ++i1, ++j) {
+      T_val[i1]=T_data->getPointer()[can_indices[j]];
+      Tolder_val[i1]=Tolder_data->getPointer()[can_indices[j]];
+      for (int k = 0; k < NDIM; ++k) {
+        node_mapping[NDIM * i1 + k] = dof_map[can_indices[j]] + k;
+        vertex[i1][k] = (*node_coord)(k, can_indices[j]);
+      }
+    }
+    /// 取出单元对象.
+    tbox::Pointer<BaseElement<NDIM> > ele =
+        d_element_manager->getElement(d_element_type[0]);
+
+    tbox::Pointer<tbox::Vector<double> > ele_vec = new tbox::Vector<double>();
+    ele_vec->resize(n_dof);
+    for (int j = 0; j < n_dof; ++j) {
+      (*ele_vec)[j] = 0.0;
+    }
+    /// 退火过程有固定温度
+
+    /// 计算单元右端项.
+    /// Vinta Yin-Da Wang:静力学
+    //    T_val[0] = 650.;T_val[1] = 650.;T_val[2] = 650.;T_val[3] = 650.;
+    //    T_val[0] = 300.;T_val[1] = 300.;T_val[2] = 300.;T_val[3] = 300.;
     ele->buildElementRHS(vertex, dt, time, ele_vec, d_newmark, (*materialid_data)(0,i),T_val,Tolder_val);
     for (int ii = 0; ii < n_dof; ++ii)
       vec_data->addVectorValue(node_mapping[ii], (*ele_vec)[ii]);

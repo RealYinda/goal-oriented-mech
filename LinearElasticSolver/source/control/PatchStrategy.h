@@ -246,6 +246,11 @@ public:
    */
   int getSolutionID() { return d_solution_id; }
 
+
+  int getSTRESSdualRHSID() { return d_dual_STRESS_rhs_id; }
+
+  int getSTRESSdualSolutionID() { return d_dual_STRESS_solution_id; }
+
   ///////////////////////////////////////////////update #8///////////////////////////////////////////////////
 
   /*!
@@ -306,6 +311,18 @@ public:
    */
   void Thermal_PostProcesing(hier::Patch<NDIM>& patch, const double time,
                              const double dt, const string& component_name);
+
+  /*!
+   * @brief 支撑指定名称的数值构件, 在单个网格片上完成伴随右端项组装.
+   *
+   * @param patch          输入参数, 网格片类, 表示网格片.
+   * @param time           输入参数, 双精度浮点型, 表示当前时刻.
+   * @param dt             输入参数, 双精度浮点型, 表示时间步长.
+   * @param component_name 输入参数, 字符串, 表示数值构件的名称.
+   *
+   */
+  void buildSTRESSdualRHSOnPatch(hier::Patch<NDIM>& patch, const double time,
+                       const double dt, const string& component_name);
 
   void Thermal_max(double* max_T, int len, hier::Patch<NDIM>& patch, const double time,
                    const double dt, const string& component_name);
@@ -769,6 +786,10 @@ private:
   int dual_face_jump_stress_id;
   /// 可能使用:面上的分析应力伴随误差
   int dual_cell_error_MECHANICS_id;
+
+  int d_dual_STRESS_solution_id;
+
+  int d_dual_STRESS_rhs_id;
 
   /// For TetQuad
   int d_Cell_volume_id;

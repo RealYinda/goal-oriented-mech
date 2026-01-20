@@ -153,6 +153,9 @@ private:
   /*!@brief 数值构件: 计算右端项 */
   tbox::Pointer<algs::NumericalIntegratorComponent<NDIM> > d_num_intc_rhs;
 
+  /*!@brief 数值构件: 计算伴随右端项 */
+  tbox::Pointer<algs::NumericalIntegratorComponent<NDIM> > d_num_intc_dual_rhs;
+
   /*!@brief 数值构件: 计算应力 */
   tbox::Pointer<algs::NumericalIntegratorComponent<NDIM> > d_num_intc_stress;
 
@@ -178,7 +181,8 @@ private:
 
   /// 解法器管理器及解法器对象
   tbox::Pointer<solv::LinearSolverManager<NDIM> > d_solver_manager;
-  tbox::Pointer<solv::BaseLinearSolver<NDIM> > d_solver_s;
+  tbox::Pointer<solv::BaseLinearSolver<NDIM> > d_solver_s_primal;
+  tbox::Pointer<solv::BaseLinearSolver<NDIM> > d_solver_s_dual;
   tbox::Pointer<solv::BaseLinearSolver<NDIM> > d_solver_th;
   tbox::Pointer<solv::BaseLinearSolver<NDIM> > d_solver_E;
 
