@@ -770,7 +770,7 @@ void LinearTet::buildElementRHS(
 void LinearTet::buildDualElementRHS(
     tbox::Array<hier::DoubleVector<NDIM> > real_vertex, const double dt,
     const double time, tbox::Pointer<tbox::Vector<double> > ele_vec,
-    NewmarkData *d_newmark,int entity_id,tbox::Array<double> Mises){
+    int entity_id,tbox::Array<double> Mises){
 
 }
 

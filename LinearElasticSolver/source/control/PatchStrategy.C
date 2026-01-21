@@ -258,7 +258,7 @@ void PatchStrategy::registerModelVariable() {
   d_von_mises_id = db->registerVariableAndContext(von_mises_stress, current);
 
   //update #1 @3
-  d_EntityIdOfCell_id = db->registerVariableAndContext(EntityIdOfCell, current, 1);
+  entity_num_id = db->registerVariableAndContext(EntityIdOfCell, current, 1);
   //update #4 @3
   d_displacement_id = db->registerVariableAndContext(displacement, current,1);
   //update #6 @2
@@ -373,7 +373,7 @@ void PatchStrategy::initializeComponent(
     //update #2
     component->registerInitPatchData(d_von_mises_id);
     //update #1 @4
-    component->registerInitPatchData(d_EntityIdOfCell_id);
+    component->registerInitPatchData(entity_num_id);
     component->registerInitPatchData(material_num_id);
     //update #4 @4
     component->registerInitPatchData(d_displacement_id);
@@ -509,7 +509,7 @@ void PatchStrategy::initializePatchData(hier::Patch<NDIM>& patch,
 
     //update #1 @5
     tbox::Pointer<pdat::CellData<NDIM, int> > entityid_data =
-        patch.getPatchData(d_EntityIdOfCell_id);
+        patch.getPatchData(entity_num_id);
     tbox::Pointer<pdat::CellData<NDIM, int> > materialid_data =
         patch.getPatchData(material_num_id);
 
@@ -1041,7 +1041,7 @@ void PatchStrategy::computeStress(hier::Patch<NDIM>& patch, const double time,
 
   /// 获取单元对应实体编号数组对象 update #3 at 2017-04-21 by tong @1
   tbox::Pointer<pdat::CellData<NDIM, int> > entityid_data =
-      patch.getPatchData(d_EntityIdOfCell_id);
+      patch.getPatchData(entity_num_id);
   tbox::Pointer<pdat::CellData<NDIM, int> > materialid_data =
       patch.getPatchData(material_num_id);
 
@@ -2185,7 +2185,7 @@ void PatchStrategy::buildRHSOnPatch(hier::Patch<NDIM>& patch, const double time,
 
   /// 获取单元对应实体编号数组对象 update #1  @8 -05-05pm
   tbox::Pointer<pdat::CellData<NDIM, int> > entityid_data =
-      patch.getPatchData(d_EntityIdOfCell_id);
+      patch.getPatchData(entity_num_id);
   tbox::Pointer<pdat::CellData<NDIM, int> > materialid_data =
       patch.getPatchData(material_num_id);
 
@@ -2299,6 +2299,9 @@ void PatchStrategy::buildRHSOnPatch(hier::Patch<NDIM>& patch, const double time,
   }
 }
 
+
+
+/// 建立伴随方程求解的右端项
 void PatchStrategy::buildSTRESSdualRHSOnPatch(hier::Patch<NDIM>& patch, const double time,
                                     const double dt,
                                     const string& component_name) {
@@ -2310,34 +2313,18 @@ void PatchStrategy::buildSTRESSdualRHSOnPatch(hier::Patch<NDIM>& patch, const do
   tbox::Pointer<hier::PatchTopology<NDIM> > patch_top =
       patch.getPatchTopology();
   /// 取出本地Patch的结点坐标数组.
-  tbox::Pointer<pdat::NodeData<NDIM, double> > node_coord =
-      patch_geo->getNodeCoordinates();
+  GET_COORD_DATA(patch,node_coord,Node);
   int* dof_map = d_dof_info->getDOFMapping(patch, hier::EntityUtilities::NODE);
-  tbox::Pointer<pdat::VectorData<NDIM, double> > vec_data =
-      patch.getPatchData(d_rhs_id);
+  /// 伴随方程的右端项
+  GET_PATCH_DATA(patch,dual_vec_data,d_dual_STRESS_rhs_id,Vector,double);
+  /// 实体编号
+  GET_PATCH_DATA(patch,entityid_data,entity_num_id,Cell,int);
+  /// 材料编号
+  GET_PATCH_DATA(patch,materialid_data,material_num_id,Cell,int);
+  /// 应力6*1向量
+  GET_PATCH_DATA(patch,stress,d_stress_id,Cell,double);
 
-  /// 获取单元对应实体编号数组对象 update #1  @8 -05-05pm
-  tbox::Pointer<pdat::CellData<NDIM, int> > entityid_data =
-      patch.getPatchData(d_EntityIdOfCell_id);
-  tbox::Pointer<pdat::CellData<NDIM, int> > materialid_data =
-      patch.getPatchData(material_num_id);
 
-  /////////////////////////////////////////update #6 @5//////////////////////////////////////
-  //@param1 vec_DispData:当前时刻单元解向量
-  //@param1 vec_DispData_older:前两步单元解向量
-  //@param2 vec_DispData_old:前一步单元解向量
-  //@param3 vec_RhsData_older:前两步单元右端项
-  //@param4 vec_RhsData_old:前一步单元右端项
-  tbox::Pointer<pdat::VectorData<NDIM, double> > vec_DispData =
-      patch.getPatchData(d_solution_id);
-  tbox::Pointer<pdat::VectorData<NDIM, double> > vec_DispData_older =
-      patch.getPatchData(d_solution_older_id);
-  tbox::Pointer<pdat::VectorData<NDIM, double> > vec_DispData_old =
-      patch.getPatchData(d_solution_old_id);
-  tbox::Pointer<pdat::VectorData<NDIM, double> > vec_RhsData_older =
-      patch.getPatchData(d_rhs_older_id);
-  tbox::Pointer<pdat::VectorData<NDIM, double> > vec_RhsData_old =
-      patch.getPatchData(d_rhs_old_id);
 
   //update #8 取前一步的温度分布
   tbox::Pointer<pdat::NodeData<NDIM, double> > T_data =
@@ -2345,26 +2332,30 @@ void PatchStrategy::buildSTRESSdualRHSOnPatch(hier::Patch<NDIM>& patch, const do
   tbox::Pointer<pdat::NodeData<NDIM, double> > Tolder_data =
       patch.getPatchData(th_Tolder_id);//
 
-  // cout<<" building RHS"<<endl;
-  //update #6 @6
-  //更新前两步、前一步的解向量和右端项的值
-  int num_nodes = patch.getNumberOfNodes(1);//取本地patch节点数目
-  for (int i2 = 0; i2 < NDIM * num_nodes; ++i2) {
-    //更新前两步及前一步的解向量值
-    vec_DispData_older->getPointer()[i2] = vec_DispData_old->getPointer()[i2];
-    vec_DispData_older->getPointer()[i2] = vec_DispData->getPointer()[i2];
-    //更新前两步及前一步的右端项值
-    vec_RhsData_older->getPointer()[i2] = vec_RhsData_old->getPointer()[i2];
-    vec_RhsData_old->getPointer()[i2] = vec_data->getPointer()[i2];
+  DECLARE_ADJACENCY(patch,cell,node,Cell,Node);
+  int num_cells = patch.getNumberOfCells(1);
+  for(int glo_cc = 0; glo_cc < num_cells; ++glo_cc){
+    /// 局部结点数量
+    int n_vertex = cell_node_ext[glo_cc + 1] - cell_node_ext[glo_cc];
+    /// 局部自由度数量
+    int n_dof = NDIM * n_vertex;
+    /// 存储应力向量
+    tbox::Array<double> Stress_value;
+    for(int st_num = 0; st_num < 6; st_num ++)
+      Stress_value[st_num] = (*stress)(st_num,glo_cc);
+    /// 结点坐标
+    tbox::Array<hier::DoubleVector<NDIM> > vertex(n_vertex);
+    /// 自由度的映射
+    tbox::Array<int> node_mapping(n_dof);
   }
+
+
   //////////////////////////////////////////////////////////////////////////////////////////////
 
   /// 获取单元周围结点的索引关系.
   tbox::Array<int> can_extent, can_indices;
   patch_top->getCellAdjacencyNodes(can_extent, can_indices);
 
-  /// 取出本地Patch的单元数目.
-  int num_cells = patch.getNumberOfCells(1);
   //  int num_nodes = patch.getNumberOfNodes(0);
 
   for (int i = 0; i < num_cells; ++i) {
@@ -2378,27 +2369,6 @@ void PatchStrategy::buildSTRESSdualRHSOnPatch(hier::Patch<NDIM>& patch, const do
     /**< 该单元的结点坐标及自由度映射 */
     tbox::Array<hier::DoubleVector<NDIM> > vertex(n_vertex);
 
-    ////////////////////////////////////////////update #6 @7////////////////////////////////////////
-    //定义一个结构体数组，数量为单元的节点数，
-    //内容为Newmark-beta方法所需的解向量及右端项值，具体见MacrosManager.h中的相关定义
-    //@param d_newmark[i]:单元的第i个节点的NewmarkData
-    //其中：
-    //@param1 v_solution_older:前两步单元解向量
-    //@param2 v_solution_old:前一步单元解向量
-    //@param3 v_rhs_older:前两步单元右端项
-    //@param4 v_rhs_old:前一步单元右端项
-    NewmarkData d_newmark[n_vertex];
-
-    //赋值
-    for (int i1 = 0, j = can_extent[i]; i1 < n_vertex; ++i1, ++j) {
-      for (int k = 0; k < NDIM; ++k) {
-        //VectorData不支持(*v)(i,j)的索引方式
-        d_newmark[i1].v_solution_older[k] = vec_DispData_older->getPointer()[can_indices[j]*NDIM+k];
-        d_newmark[i1].v_solution_old[k] = vec_DispData_old->getPointer()[can_indices[j]*NDIM+k];
-        d_newmark[i1].v_rhs_older[k] = vec_RhsData_older->getPointer()[can_indices[j]*NDIM+k];
-        d_newmark[i1].v_rhs_old[k] = vec_RhsData_old->getPointer()[can_indices[j]*NDIM+k];
-      }
-    }
     //////////////////////////////////////////////////////////////////////////////////////////////
 
     tbox::Array<int> node_mapping(n_dof);
@@ -2420,15 +2390,9 @@ void PatchStrategy::buildSTRESSdualRHSOnPatch(hier::Patch<NDIM>& patch, const do
     for (int j = 0; j < n_dof; ++j) {
       (*ele_vec)[j] = 0.0;
     }
-    /// 退火过程有固定温度
-
-    /// 计算单元右端项.
-    /// Vinta Yin-Da Wang:静力学
-    //    T_val[0] = 650.;T_val[1] = 650.;T_val[2] = 650.;T_val[3] = 650.;
-    //    T_val[0] = 300.;T_val[1] = 300.;T_val[2] = 300.;T_val[3] = 300.;
-    ele->buildElementRHS(vertex, dt, time, ele_vec, d_newmark, (*materialid_data)(0,i),T_val,Tolder_val);
+    ele->buildDualElementRHS(vertex, dt, time, ele_vec, (*materialid_data)(0,i),T_val);
     for (int ii = 0; ii < n_dof; ++ii)
-      vec_data->addVectorValue(node_mapping[ii], (*ele_vec)[ii]);
+      dual_vec_data->addVectorValue(node_mapping[ii], (*ele_vec)[ii]);
   }
 }
 
@@ -2450,7 +2414,7 @@ void PatchStrategy::buildMatrixOnPatch(hier::Patch<NDIM>& patch,
 
   /// 获取单元对应实体编号数组对象 update #1  @7
   tbox::Pointer<pdat::CellData<NDIM, int> > entityid_data =
-      patch.getPatchData(d_EntityIdOfCell_id);
+      patch.getPatchData(entity_num_id);
   tbox::Pointer<pdat::CellData<NDIM, int> > materialid_data =
       patch.getPatchData(material_num_id);
   //update #8 取前一步的温度分布
@@ -2829,7 +2793,7 @@ void PatchStrategy::buildTh_RHSOnPatch(hier::Patch<NDIM>& patch,
 
   //update #1 @8
   tbox::Pointer<pdat::CellData<NDIM, int> > entityid_data =
-      patch.getPatchData(d_EntityIdOfCell_id);
+      patch.getPatchData(entity_num_id);
   tbox::Pointer<pdat::CellData<NDIM, int> > materialid_data =
       patch.getPatchData(material_num_id);
 
@@ -2945,7 +2909,7 @@ void PatchStrategy::buildTh_MatrixOnPatch(hier::Patch<NDIM>& patch,
 
   /// 获取单元对应实体编号数组对象 update #1  @7
   tbox::Pointer<pdat::CellData<NDIM, int> > entityid_data =
-      patch.getPatchData(d_EntityIdOfCell_id);
+      patch.getPatchData(entity_num_id);
   tbox::Pointer<pdat::CellData<NDIM, int> > materialid_data =
       patch.getPatchData(material_num_id);
 
@@ -3103,7 +3067,7 @@ void PatchStrategy::buildE_RHSOnPatch(hier::Patch<NDIM>& patch, const double tim
 
   //update #1 @8
   tbox::Pointer<pdat::CellData<NDIM, int> > entityid_data =
-      patch.getPatchData(d_EntityIdOfCell_id);
+      patch.getPatchData(entity_num_id);
   tbox::Pointer<pdat::CellData<NDIM, int> > materialid_data =
       patch.getPatchData(material_num_id);
 
@@ -3316,7 +3280,7 @@ void PatchStrategy::buildE_MatrixOnPatch(hier::Patch<NDIM>& patch, const double 
 
   /// 获取单元对应实体编号数组对象 update #1  @7
   tbox::Pointer<pdat::CellData<NDIM, int> > entityid_data =
-      patch.getPatchData(d_EntityIdOfCell_id);
+      patch.getPatchData(entity_num_id);
   tbox::Pointer<pdat::CellData<NDIM, int> > materialid_data =
       patch.getPatchData(material_num_id);
   //取前一步的温度分布
@@ -3605,6 +3569,18 @@ void PatchStrategy::getFromInput(tbox::Pointer<tbox::Database> db) {
   } else {
     TBOX_ERROR(d_object_name << ": "
                << " No key `time_domain_solving' found in data." << endl);
+  }
+  if (db->keyExists("error_estimation_type")) {
+    d_error_estimation_type = db->getInteger("time_domain_solving");
+  } else {
+    TBOX_ERROR(d_object_name << ": "
+               << " No key `error_estimation_type' found in data." << endl);
+  }
+  if (db->keyExists("goal_oriented_entity")) {
+    d_goal_oriented_entity = db->getIntegerArray("goal_oriented_entity");
+  } else {
+    TBOX_ERROR(d_object_name << ": "
+               << " No key `goal_oriented_entity' found in data." << endl);
   }
 }
 

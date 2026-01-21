@@ -322,7 +322,7 @@ public:
    *
    */
   void buildSTRESSdualRHSOnPatch(hier::Patch<NDIM>& patch, const double time,
-                       const double dt, const string& component_name);
+                                 const double dt, const string& component_name);
 
   void Thermal_max(double* max_T, int len, hier::Patch<NDIM>& patch, const double time,
                    const double dt, const string& component_name);
@@ -419,7 +419,7 @@ public:
      * @param component_name
      */
   void STRESS_ErrorEst(hier::Patch<NDIM>& patch, const double time,
-                      const double dt, const string& component_name);
+                       const double dt, const string& component_name);
   /**
      * @brief PostprocessStress: 完成恢复应力的后处理
      * @param patch
@@ -720,9 +720,12 @@ private:
 
   /// 需要读取的坐标点信息
   string d_file_name_query;
-
+  /// 是否时域求解
   bool d_is_time_domain_solve;
-
+  /// 误差估计种类
+  int d_error_estimation_type;
+  /// 目标导向实体编号
+  tbox::Array<int> d_goal_oriented_entity;
   /// 输入数据库指针.
   tbox::Pointer<tbox::Database> d_input_db;
 
@@ -734,7 +737,7 @@ private:
   int d_stress_id;
   int d_plot_id;
 
-  int d_EntityIdOfCell_id;//update #1
+  int entity_num_id;//update #1
   int d_displacement_id;//update #4
   int d_von_mises_id;//update #2
 
