@@ -2340,13 +2340,31 @@ void PatchStrategy::buildSTRESSdualRHSOnPatch(hier::Patch<NDIM>& patch, const do
     /// 局部自由度数量
     int n_dof = NDIM * n_vertex;
     /// 存储应力向量
-    tbox::Array<double> Stress_value;
+    tbox::Pointer<tbox::Vector<double> > Stress_value = new tbox::Vector<double>(6);
     for(int st_num = 0; st_num < 6; st_num ++)
-      Stress_value[st_num] = (*stress)(st_num,glo_cc);
+      (*Stress_value)[st_num] = (*stress)(st_num,glo_cc);
     /// 结点坐标
     tbox::Array<hier::DoubleVector<NDIM> > vertex(n_vertex);
     /// 自由度的映射
     tbox::Array<int> node_mapping(n_dof);
+
+    for (int i = 0, j = cell_node_ext[glo_cc]; i < n_vertex; ++i, ++j){
+      int loc_nn = cell_node_idx[j];
+      for (int k = 0; k < NDIM; ++k) {
+        node_mapping[NDIM * i + k] = dof_map[loc_nn] + k;
+        vertex[i][k] = (*node_coord)(k, loc_nn);
+      }
+    }
+    /// 取出单元对象.
+    tbox::Pointer<BaseElement<NDIM> > ele =
+        d_element_manager->getElement(d_element_type[0]);
+    /// 单元右端向量
+    tbox::Pointer<tbox::Vector<double> > ele_vec = new tbox::Vector<double>();
+    ele_vec->resize(n_dof);
+    for (int j = 0; j < n_dof; ++j) (*ele_vec)[j] = 0.0;
+    int ele_material_id = (*materialid_data)(0,glo_cc);
+    ele->buildDualElementRHS(vertex, dt, time, ele_vec, ele_material_id,Stress_value);
+
   }
 
 
@@ -2390,7 +2408,7 @@ void PatchStrategy::buildSTRESSdualRHSOnPatch(hier::Patch<NDIM>& patch, const do
     for (int j = 0; j < n_dof; ++j) {
       (*ele_vec)[j] = 0.0;
     }
-    ele->buildDualElementRHS(vertex, dt, time, ele_vec, (*materialid_data)(0,i),T_val);
+//    ele->buildDualElementRHS(vertex, dt, time, ele_vec, (*materialid_data)(0,i),T_val);
     for (int ii = 0; ii < n_dof; ++ii)
       dual_vec_data->addVectorValue(node_mapping[ii], (*ele_vec)[ii]);
   }

@@ -34,6 +34,7 @@
 #include "Array.h"
 //自定义宏管理文件
 #include "MacrosManager.h"
+#include "JAUMIN_Macros.h"
 
 using namespace JAUMIN;
 
@@ -145,7 +146,7 @@ public:
   virtual void buildDualElementRHS(
       tbox::Array<hier::DoubleVector<NDIM> > real_vertex, const double dt,
       const double time, tbox::Pointer<tbox::Vector<double> > ele_vec,
-      int entity_id,tbox::Array<double> Mises);
+      int entity_id,tbox::Pointer<tbox::Vector<double> >);
   /////////////////////////////////////////////////update #8//////////////////////////////////////////////
 
   /**

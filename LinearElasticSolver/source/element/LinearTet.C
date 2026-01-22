@@ -770,7 +770,30 @@ void LinearTet::buildElementRHS(
 void LinearTet::buildDualElementRHS(
     tbox::Array<hier::DoubleVector<NDIM> > real_vertex, const double dt,
     const double time, tbox::Pointer<tbox::Vector<double> > ele_vec,
-    int entity_id,tbox::Array<double> Mises){
+    int entity_id,tbox::Pointer<tbox::Vector<double> >){
+
+  /// 取出积分器对象.
+  tbox::Pointer<IntegratorManager<NDIM> > integrator_manager =
+      IntegratorManager<NDIM>::getManager();
+  tbox::Pointer<BaseIntegrator<NDIM> > integrator =
+      integrator_manager->getIntegrator("LinearTetrahedron");
+
+  /// 取出形函数对象.
+  tbox::Pointer<ShapeFunctionManager<NDIM> > shape_manager =
+      ShapeFunctionManager<NDIM>::getManager();
+  tbox::Pointer<BaseShapeFunction<NDIM> > shape_func =
+      shape_manager->getShapeFunction("LinearTetrahedron");
+  /// 取出单元上自由度数目.
+  int n_dof = shape_func->getNumberOfDof();
+  ele_vec->resize(n_dof * NDIM);
+  for (int j = 0; j < n_dof * NDIM; ++j)  (*ele_vec)[j] = 0.0;
+  /// 取出材料.
+  tbox::Pointer<MaterialManager<NDIM> > material_manager =
+      MaterialManager<NDIM>::getManager();
+  /// 使用宏定义确定材料管理器
+  tbox::Pointer<Material> material = material_manager->getMaterial(GET_USER_MAT(entity_id));
+
+
 
 }
 

@@ -80,4 +80,18 @@
   (gradient)[1] = ((p1)[0] - (p0)[0]) / (vol); \
   }
 
+
+// 利用三元运算符链（或者GCC的语句表达式，这里用三元兼容性最好）
+#define GET_USER_MAT(ID) \
+    ((ID) == 1  ? "Silicon" : \
+     (ID) == 2  ? "Copper"  : \
+     (ID) == 4  ? "SiO2"    : \
+     (ID) == 5  ? "SiN"     : \
+     (ID) == 6  ? "Aluminum": \
+     (ID) == 13 ? "MoCu"    : \
+     (ID) == 15 ? "GaN"     : \
+     (ID) == 16 ? "Al2O3"   : \
+     (ID) == 17 ? "Alloy"   : \
+     "Gold") // 默认值包含 case 3 和 default
+
 #endif  // included_JAUMIN_Macros
