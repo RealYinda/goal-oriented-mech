@@ -770,7 +770,7 @@ void LinearTet::buildElementRHS(
 void LinearTet::buildDualElementRHS(
     tbox::Array<hier::DoubleVector<NDIM> > real_vertex, const double dt,
     const double time, tbox::Pointer<tbox::Vector<double> > ele_vec,
-    int entity_id,tbox::Pointer<tbox::Vector<double> >){
+    int entity_id,tbox::Pointer<tbox::Vector<double> > stress, double von_mises){
 
   /// 取出积分器对象.
   tbox::Pointer<IntegratorManager<NDIM> > integrator_manager =
@@ -792,6 +792,62 @@ void LinearTet::buildDualElementRHS(
       MaterialManager<NDIM>::getManager();
   /// 使用宏定义确定材料管理器
   tbox::Pointer<Material> material = material_manager->getMaterial(GET_USER_MAT(entity_id));
+  /// Vinta Yin-Da Wang
+  /// 伴随方程求解暂时不考虑温变,所以getModuli用普通室温
+  double e_Temperature = 293.15;
+  tbox::Array<tbox::Array<double> > moduli = material->getModuli(e_Temperature);
+  tbox::Matrix<double> moduli_mat(6);
+  for(int i = 0; i < 6; i ++)
+    for(int j = 0; j < 6; j ++)
+      moduli_mat[i][j] = moduli[i][j];
+  /// 如果是von Mises应力的目标导向函数,需要定义一个辅助矩阵
+  tbox::Matrix<double> M_matrix(6);
+  for(int i = 0; i < 3; i ++){
+    for(int j = 0; j < 3;j ++){
+      if(i==j) M_matrix[i][j] = 2.;
+      else M_matrix[i][j] = -1.;
+    }
+    for(int j = 3; j < 6;j ++)
+      M_matrix[i][j] = 0.;
+  }
+  for(int i = 3; i < 6; i ++){
+    for(int j = 0; j < 6;j ++){
+      if(i==j) M_matrix[i][j] = 6.;
+      else M_matrix[i][j] = 0.;
+    }
+  }
+  /// 取出积分点.
+  tbox::Array<hier::DoubleVector<NDIM> > quad_pnt =
+      integrator->getQuadraturePoints(real_vertex);
+  /// 取出积分点的积分权重.
+  tbox::Array<double> weight =
+      integrator->getQuadratureWeights();
+  /// 取出基函数在积分点的值和梯度值.
+  tbox::Array<tbox::Array<double> > bas_val =
+      shape_func->value(real_vertex, quad_pnt);
+  /// 取出积分点数目.
+  int num_quad_pnts = integrator->getNumberOfQuadraturePoints();
+  /// 取出模板单元的面积.
+  double volume = integrator->getElementVolume();
+  /// 取出jacobian矩阵行列式.
+  double jac = integrator->getLocal2GlobalJacobian(real_vertex);
+
+  /// 伴随右端项应该为\iint{N^\top B\top D V_\sigma}
+  /// V_\sigma = M\sigma
+  tbox::Vector<double> V_vector(6);V_vector = M_matrix*(*stress);
+  tbox::Vector<double> DV_vector(6);DV_vector = moduli_mat*V_vector;
+  for(int j = 0; j < n_dof; ++j){
+    for (int dim = 0; dim < NDIM; ++dim){
+      for(int k = 0; k < num_quad_pnts; ++k){
+        /// 第j个结点第dim个自由度的第k个积分点
+
+      }
+    }
+  }
+
+
+
+
 
 
 

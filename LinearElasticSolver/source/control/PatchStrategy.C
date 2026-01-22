@@ -2323,7 +2323,8 @@ void PatchStrategy::buildSTRESSdualRHSOnPatch(hier::Patch<NDIM>& patch, const do
   GET_PATCH_DATA(patch,materialid_data,material_num_id,Cell,int);
   /// 应力6*1向量
   GET_PATCH_DATA(patch,stress,d_stress_id,Cell,double);
-
+  /// von Mises 应力
+  GET_PATCH_DATA(patch,von_mises,d_von_mises_id,Cell,double);
 
 
   //update #8 取前一步的温度分布
@@ -2363,7 +2364,8 @@ void PatchStrategy::buildSTRESSdualRHSOnPatch(hier::Patch<NDIM>& patch, const do
     ele_vec->resize(n_dof);
     for (int j = 0; j < n_dof; ++j) (*ele_vec)[j] = 0.0;
     int ele_material_id = (*materialid_data)(0,glo_cc);
-    ele->buildDualElementRHS(vertex, dt, time, ele_vec, ele_material_id,Stress_value);
+    double ele_von_mises = (*von_mises)(0,glo_cc);
+    ele->buildDualElementRHS(vertex, dt, time, ele_vec, ele_material_id,Stress_value,ele_von_mises);
 
   }
 

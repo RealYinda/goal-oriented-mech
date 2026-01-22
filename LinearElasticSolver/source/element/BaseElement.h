@@ -131,7 +131,7 @@ public:
   virtual void buildDualElementRHS(
       tbox::Array<hier::DoubleVector<NDIM> > real_vertex, const double dt,
       const double time, tbox::Pointer<tbox::Vector<double> > ele_vec,
-      int entity_id, tbox::Pointer<tbox::Vector<double> >);//
+      int entity_id, tbox::Pointer<tbox::Vector<double> > stress, double von_mises);//
 
 
   /////////////////////////////////////////////////update #8//////////////////////////////////////////////
