@@ -2366,51 +2366,6 @@ void PatchStrategy::buildSTRESSdualRHSOnPatch(hier::Patch<NDIM>& patch, const do
     int ele_material_id = (*materialid_data)(0,glo_cc);
     double ele_von_mises = (*von_mises)(0,glo_cc);
     ele->buildDualElementRHS(vertex, dt, time, ele_vec, ele_material_id,Stress_value,ele_von_mises);
-
-  }
-
-
-  //////////////////////////////////////////////////////////////////////////////////////////////
-
-  /// 获取单元周围结点的索引关系.
-  tbox::Array<int> can_extent, can_indices;
-  patch_top->getCellAdjacencyNodes(can_extent, can_indices);
-
-  //  int num_nodes = patch.getNumberOfNodes(0);
-
-  for (int i = 0; i < num_cells; ++i) {
-    int n_vertex = can_extent[i + 1] - can_extent[i];
-    int n_dof = NDIM * n_vertex;
-
-    //存储上一时刻单元节点温度
-    tbox::Array<double> T_val(n_vertex); //当前温度
-    tbox::Array<double> Tolder_val(n_vertex);
-
-    /**< 该单元的结点坐标及自由度映射 */
-    tbox::Array<hier::DoubleVector<NDIM> > vertex(n_vertex);
-
-    //////////////////////////////////////////////////////////////////////////////////////////////
-
-    tbox::Array<int> node_mapping(n_dof);
-
-    for (int i1 = 0, j = can_extent[i]; i1 < n_vertex; ++i1, ++j) {
-      T_val[i1]=T_data->getPointer()[can_indices[j]];
-      Tolder_val[i1]=Tolder_data->getPointer()[can_indices[j]];
-      for (int k = 0; k < NDIM; ++k) {
-        node_mapping[NDIM * i1 + k] = dof_map[can_indices[j]] + k;
-        vertex[i1][k] = (*node_coord)(k, can_indices[j]);
-      }
-    }
-    /// 取出单元对象.
-    tbox::Pointer<BaseElement<NDIM> > ele =
-        d_element_manager->getElement(d_element_type[0]);
-
-    tbox::Pointer<tbox::Vector<double> > ele_vec = new tbox::Vector<double>();
-    ele_vec->resize(n_dof);
-    for (int j = 0; j < n_dof; ++j) {
-      (*ele_vec)[j] = 0.0;
-    }
-//    ele->buildDualElementRHS(vertex, dt, time, ele_vec, (*materialid_data)(0,i),T_val);
     for (int ii = 0; ii < n_dof; ++ii)
       dual_vec_data->addVectorValue(node_mapping[ii], (*ele_vec)[ii]);
   }

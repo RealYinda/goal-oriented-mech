@@ -823,8 +823,8 @@ void LinearTet::buildDualElementRHS(
   tbox::Array<double> weight =
       integrator->getQuadratureWeights();
   /// 取出基函数在积分点的值和梯度值.
-  tbox::Array<tbox::Array<double> > bas_val =
-      shape_func->value(real_vertex, quad_pnt);
+  tbox::Array<tbox::Array<tbox::Array<double> > > bas_grad =
+      shape_func->gradient(real_vertex, quad_pnt);
   /// 取出积分点数目.
   int num_quad_pnts = integrator->getNumberOfQuadraturePoints();
   /// 取出模板单元的面积.
@@ -838,9 +838,29 @@ void LinearTet::buildDualElementRHS(
   tbox::Vector<double> DV_vector(6);DV_vector = moduli_mat*V_vector;
   for(int j = 0; j < n_dof; ++j){
     for (int dim = 0; dim < NDIM; ++dim){
+      tbox::Vector<double> NTBT(6);
       for(int k = 0; k < num_quad_pnts; ++k){
         /// 第j个结点第dim个自由度的第k个积分点
-
+        if(dim == 0){
+          /// [dN/dx 0 0 dN/dy 0 dN/dz]
+          NTBT[0] = bas_grad[k][j][0];NTBT[1] = 0;NTBT[2] = 0;
+          NTBT[3] = bas_grad[k][j][1];NTBT[4] = 0;NTBT[5] = bas_grad[k][j][2];
+        }
+        if(dim == 1){
+          /// [0 dN/dy 0 dN/dx dN/dz 0]
+          NTBT[0] = 0;NTBT[1] = bas_grad[k][j][1];NTBT[2] = 0;
+          NTBT[3] = bas_grad[k][j][0];NTBT[4] = bas_grad[k][j][2];NTBT[5] = 0;
+        }
+        if(dim == 2){
+          /// [0 0 dN/dz 0 dN/dy dN/dx]
+          NTBT[0] = 0;NTBT[1] = 0;NTBT[2] = bas_grad[k][j][2];
+          NTBT[3] = 0;NTBT[4] = bas_grad[k][j][1];NTBT[5] = bas_grad[k][j][0];
+        }
+        double NTBT_DV_no_scale = NTBT*DV_vector;
+        /// 为防止von Mises接近0的时候出现除零困境
+        double scaling = (von_mises>1e-5)?(1./(2*von_mises)):0;
+        double NTBT_DV_scale = scaling * NTBT_DV_no_scale;
+        (*ele_vec)[j * NDIM + dim] = NTBT_DV_scale*weight[k]*jac*volume;
       }
     }
   }
