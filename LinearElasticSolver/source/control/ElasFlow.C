@@ -303,7 +303,7 @@ int ElasFlow::advanceLevel(
   d_solver_s_primal->setMatrix(mat_id);
   d_solver_s_primal->setRHS(vec_id);
   tbox::pout << "**************************";
-  tbox::pout<<"solving primal problem";
+  tbox::pout <<"Solving Primal Problem";
   tbox::pout << "**************************"<<endl;
   /// 求解
   d_solver_s_primal->solve(first_step, sol_id, patch_level, d_solver_db->getDatabase ("SolverStress"));
@@ -312,13 +312,19 @@ int ElasFlow::advanceLevel(
   d_num_intc_displacement->computing(patch_level, current_time, actual_dt,false);
   /// 调用数值构件接口函数, 计算应力.
   d_num_intc_stress->computing(patch_level, current_time, actual_dt, false);
+  d_num_intc_dual_rhs->computing(patch_level, current_time, actual_dt);
   int dual_vec_id = p_strategy->getSTRESSdualRHSID();
   int dual_sol_id = p_strategy->getSTRESSdualSolutionID();
   /// 这个方程中的矩阵是自伴随的
   /// 求解伴随方程
+
+  tbox::pout << "**************************";
+  tbox::pout <<"Solving Dual Problem";
+  tbox::pout << "**************************"<<endl;
   /// 设置解法器
-  d_solver_s_primal->setMatrix(mat_id);
-  d_solver_s_primal->setRHS(vec_id);
+  d_solver_s_dual->setMatrix(mat_id);
+  d_solver_s_dual->setRHS(dual_vec_id);
+
   tbox::pout<<"recovery "<<endl;
   t_fem_post->start();
   d_num_intc_recovery->computing(patch_level, current_time, actual_dt, false);

@@ -427,6 +427,8 @@ public:
      * @param dt
      * @param component_name
      */
+  void PrimalStressErrorEst(hier::Patch<NDIM>& patch,int face);
+  void DualStressErrorEst(hier::Patch<NDIM>& patch,int face);
   void PostprocessStress(hier::Patch<NDIM>& patch, const double time,
                          const double dt, const string& component_name);
 

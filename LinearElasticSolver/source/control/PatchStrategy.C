@@ -932,6 +932,8 @@ void PatchStrategy::computeOnPatch(hier::Patch<NDIM>& patch, const double time,
     Electric_PostProcesing(patch, time, dt, component_name);
   } else if (component_name == "DUAL_RHS") {
     buildSTRESSdualRHSOnPatch(patch, time, dt, component_name);
+  } else if (component_name == "ERROR_EST") {
+    STRESS_ErrorEst(patch, time, dt, component_name);
   } else {
     TBOX_ERROR(" PatchStrategy :: component name is error! ");
   }
@@ -1780,11 +1782,47 @@ void PatchStrategy::StressRecovery(hier::Patch<NDIM>& patch, const double time,
 }
 
 /// 应力误差的估计
+/// 此处的误差估计分为两个函数,分别管理正向误差和伴随误差
 void PatchStrategy::STRESS_ErrorEst(hier::Patch<NDIM>& patch, const double time,
                                    const double dt, const string& component_name){
   int num_faces = patch.getNumberOfFaces(0);
+  for(int ff = 0; ff < num_faces; ff++){
+    if(d_error_estimation_type  == 1){
+      PrimalStressErrorEst(patch,ff);
+    }
+    else if(d_error_estimation_type  == 2){
+      PrimalStressErrorEst(patch,ff);
+      DualStressErrorEst(patch,ff);
+    }
 
 
+  }
+
+
+}
+void PrimalStressErrorEst(hier::Patch<NDIM>& patch, int face){
+  DECLARE_ADJACENCY(patch,face,cell,Face,Cell);
+  DECLARE_ADJACENCY(patch,face,node,Face,Node);
+  DECLARE_ADJACENCY(patch,cell,node,Cell,Node);
+  double outer_normal[NDIM], outer_normal_raw[NDIM];
+  int cell = face_cell_idx[face_cell_ext[face]];
+  /// 计算外推面单元面积
+  outerNormal(cell_node_ext[cell+1]-cell_node_ext[cell],
+      cell_node_idx.getPointer() + cell_node_ext[cell],
+      face_node_ext[face+1]-face_node_ext[face],
+      face_node_idx.getPointer() + face_node_ext[face],
+      patch.getNumberOfNodes(1),
+      patch.getPatchGeometry()->getNodeCoordinates()->getPointer(),
+      NDIM,
+      outer_normal,
+      outer_normal_raw);
+  tbox::Matrix<double> Tensor_normal(3,6);
+  Tensor_normal[0][0] = outer_normal[0];Tensor_normal[1][0] = 0;Tensor_normal[2][0] = 0;
+  Tensor_normal[0][1] = 0;Tensor_normal[1][1] = outer_normal[1];Tensor_normal[2][1] = 0;
+  Tensor_normal[0][2] = 0;Tensor_normal[1][2] = 0;Tensor_normal[2][2] = outer_normal[2];
+  Tensor_normal[0][3] = outer_normal[1];Tensor_normal[1][3] = outer_normal[0];Tensor_normal[2][3] = 0;
+  Tensor_normal[0][4] = 0;Tensor_normal[1][4] = outer_normal[2];Tensor_normal[2][4] = outer_normal[1];
+  Tensor_normal[0][5] = outer_normal[2];Tensor_normal[1][5] = 0;Tensor_normal[2][5] = outer_normal[0];
 }
 
 
@@ -2369,6 +2407,18 @@ void PatchStrategy::buildSTRESSdualRHSOnPatch(hier::Patch<NDIM>& patch, const do
     for (int ii = 0; ii < n_dof; ++ii)
       dual_vec_data->addVectorValue(node_mapping[ii], (*ele_vec)[ii]);
   }
+  /// 伴随方程也具有边界条件
+  /// 由于边界条件全0,只需要处理右端项即可,左端矩阵无需额外处理
+  int constraint_size = d_constraint_types.getSize();
+  double* dual_vec_val = dual_vec_data->getPointer();
+  for (int k = 0; k < constraint_size; ++k){
+    if(HAS_ENTITY_SET(patch,d_constraint_marks[k] , NODE, 1)){
+      DECLARE_ENTITY_SET(patch,entity_idx,d_constraint_marks[k],NODE,1);
+      for(int i = 0; i < entity_idx.size(); i++)
+        for(int dim = 0; dim < NDIM; dim ++)
+          dual_vec_val[dof_map[entity_idx[i]]+dim] = 0.;
+    }
+  }
 }
 
 /*************************************************************************
@@ -2423,7 +2473,7 @@ void PatchStrategy::buildMatrixOnPatch(hier::Patch<NDIM>& patch,
       }
     }
     elem_T = (T_val[0]+T_val[1]+T_val[2]+T_val[3])/4;
-    elem_T = 600.;
+//    elem_T = 600.;
 
     tbox::Pointer<tbox::Matrix<double> > ele_mat = new tbox::Matrix<double>();
     ele_mat->resize(n_dof, n_dof);
