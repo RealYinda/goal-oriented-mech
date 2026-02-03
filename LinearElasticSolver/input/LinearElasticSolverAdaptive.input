@@ -123,6 +123,9 @@ HierarchyTimeIntegrator{
     grow_dt              = 1.0         // 连续两个时间步长的最大放大倍数.
 
     GriddingAlgorithm{
+    
+    // 需要在0号进程串行读入
+    init_on_proc_zero = TRUE
 
     // 网格片大小.
     patch_size = 0

@@ -313,37 +313,28 @@ void PatchStrategy::registerModelVariable() {
   d_Cell_volume_id=db->registerVariableAndContext(Cell_volume, current,1);
 
 
-  /**
-    *****误差估计部分*****
-    **/
-  /// 正向问题的面跳量误差
-  tbox::Pointer<pdat::FaceVariable<NDIM, double> > primal_face_jump_stress =
-      new pdat::FaceVariable<NDIM, double>("primal_face_jump_stress",NDIM,1);
+  /** 误差估计的各个分量内容 **/
+  /// 正向问题跳量
+  DECLARE_VARIABLE(primal_face_jump_stress,Face,double,NDIM,1);
+  /// 正向问题残差
+  DECLARE_VARIABLE(primal_volume_res_stress,Cell,double,NDIM,1);
+  /// 正向问题总误差
+  DECLARE_VARIABLE(primal_cell_error_MECHANICS,Cell,double,1,1);
+  /// 伴随问题跳量
+  DECLARE_VARIABLE(dual_face_jump_stress,Face,double,NDIM,1);
+  /// 伴随问题残差
+  DECLARE_VARIABLE(dual_volume_res_stress,Cell,double,NDIM,1);
+  /// 伴随问题总误差
+  DECLARE_VARIABLE(dual_cell_error_MECHANICS,Cell,double,1,1);
 
-  /// 伴随问题的面跳量误差
-  tbox::Pointer<pdat::FaceVariable<NDIM, double> > dual_face_jump_stress =
-      new pdat::FaceVariable<NDIM, double>("dual_face_jump_stress",NDIM,1);
+  REGISTER_VARIABLE(primal_face_jump_stress_id, primal_face_jump_stress, current, 1);
+  REGISTER_VARIABLE(primal_volume_res_stress_id, primal_volume_res_stress, current, 1);
+  REGISTER_VARIABLE(primal_cell_error_MECHANICS_id, primal_cell_error_MECHANICS, current, 1);
+  REGISTER_VARIABLE(dual_face_jump_stress_id, dual_face_jump_stress, current, 1);
+  REGISTER_VARIABLE(dual_volume_res_stress_id, dual_volume_res_stress, current, 1);
+  REGISTER_VARIABLE(dual_cell_error_MECHANICS_id, dual_cell_error_MECHANICS, current, 1);
 
-  /// 正向问题的体误差统计
-  tbox::Pointer<pdat::CellVariable<NDIM, double> > primal_cell_error_MECHANICS =
-      new pdat::CellVariable<NDIM, double>("primal_cell_error_MECHANICS",1,1);
-
-  /// 伴随问题的体误差统计
-  tbox::Pointer<pdat::CellVariable<NDIM, double> > dual_cell_error_MECHANICS =
-      new pdat::CellVariable<NDIM, double>("primal_cell_error_MECHANICS",1,1);
-
-  /// 正向问题的体误差统计
-  tbox::Pointer<pdat::CellVariable<NDIM, double> > total_cell_error_MECHANICS =
-      new pdat::CellVariable<NDIM, double>("total_cell_error_MECHANICS",1,1);
-
-  primal_face_jump_stress_id=db->registerVariableAndContext(primal_face_jump_stress, current,1);
-  dual_face_jump_stress_id=db->registerVariableAndContext(dual_face_jump_stress, current,1);
-  primal_cell_error_MECHANICS_id=db->registerVariableAndContext(primal_cell_error_MECHANICS, current,0);
-  dual_cell_error_MECHANICS_id=db->registerVariableAndContext(dual_cell_error_MECHANICS, current,0);
-  total_cell_error_MECHANICS_id=db->registerVariableAndContext(total_cell_error_MECHANICS, current,0);
-
-
-  /// 伴随方程的矩阵形式
+  /** 伴随方程矩阵 **/
   DECLARE_MATVEC_VARIABLE(dual_solution, Vector, double, d_dof_info);  // 向量变量， 解向量
   DECLARE_MATVEC_VARIABLE(dual_rhs, Vector, double, d_dof_info);  // 向量变量， 右端项
   DECLARE_MATVEC_VARIABLE(dual_matrix, CSRMatrix, double, d_dof_info);  // 矩阵变量， 矩阵
@@ -397,8 +388,10 @@ void PatchStrategy::initializeComponent(
 
     /// 注册误差估计数据片
     component->registerInitPatchData(primal_face_jump_stress_id);
+    component->registerInitPatchData(primal_volume_res_stress_id);
     component->registerInitPatchData(primal_cell_error_MECHANICS_id);
     component->registerInitPatchData(dual_face_jump_stress_id);
+    component->registerInitPatchData(dual_volume_res_stress_id);
     component->registerInitPatchData(dual_cell_error_MECHANICS_id);
     /// 将dofInfo中的数据片注册到初始化构件。
     d_dof_info->registerToInitComponent(component);
@@ -1806,7 +1799,7 @@ void PrimalStressErrorEst(hier::Patch<NDIM>& patch, int face){
   DECLARE_ADJACENCY(patch,cell,node,Cell,Node);
   double outer_normal[NDIM], outer_normal_raw[NDIM];
   int cell = face_cell_idx[face_cell_ext[face]];
-  /// 计算外推面单元面积
+  /// 计算面的外法向张量
   outerNormal(cell_node_ext[cell+1]-cell_node_ext[cell],
       cell_node_idx.getPointer() + cell_node_ext[cell],
       face_node_ext[face+1]-face_node_ext[face],

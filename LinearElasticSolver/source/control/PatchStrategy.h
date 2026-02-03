@@ -782,13 +782,16 @@ private:
 
   /// 面上的应力跳量
   int primal_face_jump_stress_id;
+  /// 体上的插值误差
+  int primal_volume_res_stress_id;
   /// 分析应力的误差
-  int primal_cell_error_MECHANICS_id;
+  int primal_cell_error_MECHANICS_id; 
 
   int total_cell_error_MECHANICS_id;
 
   /// 可能使用:面上的伴随应力跳量
   int dual_face_jump_stress_id;
+  int dual_volume_res_stress_id;
   /// 可能使用:面上的分析应力伴随误差
   int dual_cell_error_MECHANICS_id;
 
