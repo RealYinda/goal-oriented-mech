@@ -21,6 +21,7 @@
 #include "BaseLinearSolver.h"
 #include "StandardComponentPatchStrategy.h"
 #include "ReductionIntegratorComponent.h"
+#include "RebalanceIntegratorComponent.h"
 #include "LinearSolverManager.h"
 #include "TimeIntegratorLevelStrategy.h"
 
@@ -143,7 +144,10 @@ private:
 
   /*!@brief 初始化构件: 初始化物理量 */
   tbox::Pointer<algs::InitializeIntegratorComponent<NDIM> > d_init_intc;
-
+  /** 力学计算添加 如果是热和力分开计算需要使用它来读取温度场数据 **/
+  tbox::Pointer<algs::InitializeIntegratorComponent<NDIM> > d_init_proc0_intc;
+  /** 管理重分布构件**/
+  tbox::Pointer<algs::RebalanceIntegratorComponent<NDIM> > d_rebalance_intc;
   /*!@brief 内存构件: 为矩阵向量开辟内存 */
   tbox::Pointer<algs::MemoryIntegratorComponent<NDIM> > d_alloc_data;
 

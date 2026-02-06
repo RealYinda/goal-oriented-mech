@@ -94,6 +94,10 @@ public:
    *  vector是输入输出参数: 输入是已遍历网格片的归约结果,
    *  输出是输入值和当前网格片计算结果的归约值.
    */
+  ///初始化有限元函数
+  void initializeFEMComp(hier::Patch<NDIM>& patch, const double time,
+                        const bool initial_time,
+                        const string& component_name);
   void reduceOnPatch(double* vector, int len, hier::Patch<NDIM>& patch,
                      const double time, const double dt,
                      const string& component_name);

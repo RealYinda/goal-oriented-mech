@@ -477,229 +477,243 @@ void PatchStrategy::initializePatchData(hier::Patch<NDIM>& patch,
                                         const double time,
                                         const bool initial_time,
                                         const string& component_name) {
-#ifdef DEBUG_CHECK_ASSERTIONS
-  TBOX_ASSERT(component_name == "INIT");
-#endif
+//#ifdef DEBUG_CHECK_ASSERTIONS
+//  TBOX_ASSERT(component_name == "INIT");
+  //#endif
   NULL_USE(time); /**< 初始化中没有用到time */
 
   if (initial_time) {
-    tbox::Pointer<pdat::NodeData<NDIM, double> > plot =
-        patch.getPatchData(d_plot_id);
-    tbox::Pointer<pdat::CellData<NDIM, double> > str =
-        patch.getPatchData(d_stress_id);
-
-    //update #2
-    tbox::Pointer<pdat::CellData<NDIM, double> > von_Mises =
-        patch.getPatchData(d_von_mises_id);
-
-    //update #8 @6
-    tbox::Pointer<pdat::NodeData<NDIM, double> > th_plot =
-        patch.getPatchData(th_plot_id);
-    tbox::Pointer<pdat::NodeData<NDIM, double> > th_Told =
-        patch.getPatchData(th_Told_id);
-    tbox::Pointer<pdat::NodeData<NDIM, double> > th_Tolder =
-        patch.getPatchData(th_Tolder_id);
-
-    //update #1 @5
-    tbox::Pointer<pdat::CellData<NDIM, int> > entityid_data =
-        patch.getPatchData(entity_num_id);
-    tbox::Pointer<pdat::CellData<NDIM, int> > materialid_data =
-        patch.getPatchData(material_num_id);
-
-    //update #4 @5
-    tbox::Pointer<pdat::NodeData<NDIM, double> >disp_node =
-        patch.getPatchData(d_displacement_id);
-
-    //update #9
-    tbox::Pointer<pdat::NodeData<NDIM, double> >voltage_node =
-        patch.getPatchData(E_plot_id);
-    tbox::Pointer<pdat::CellData<NDIM, double> > electric_data =
-        patch.getPatchData(E_mag_id);
-    tbox::Pointer<pdat::CellData<NDIM, double> > tool_domain =
-        patch.getPatchData(d_tool_domain_id);
-    tbox::Pointer<pdat::CellData<NDIM, double> > improved_coef =
-        patch.getPatchData(d_improved_coefficient_id);
-    tbox::Pointer<pdat::CellData<NDIM, double> > plot_coef =
-        patch.getPatchData(d_output_coefficient_id);
-
-    tbox::Pointer<pdat::CellData<NDIM, int> > is_on_bnd =
-        patch.getPatchData(d_contained_domain_id);
-    DECLARE_ADJACENCY(patch,cell,face,Cell,Face);
-    DECLARE_ADJACENCY(patch,face,cell,Face,Cell);
-    DECLARE_ADJACENCY(patch,cell,cell,Cell,Cell);
-
-
-    tbox::Pointer<pdat::CellData<NDIM, double> > jacobian =
-        patch.getPatchData(d_Cell_jacobian_id);
-    tbox::Pointer<pdat::CellData<NDIM, double> > volume=
-        patch.getPatchData(d_Cell_volume_id);
-    JAUMIN::appu::TetGeom tetrahedron(patch);
-
-
-
-    // 获取当前网格片的单元，结点数目.
-    int num_nodes = patch.getNumberOfNodes(1);
-    int num_local_nodes = patch.getNumberOfNodes();
-    int num_local_cells = patch.getNumberOfCells();
-    int num_cells = patch.getNumberOfCells(1);
-
-    /// 获取自由度分布和映射数组的指针首地址
-    int* dis_ptr = d_dof_info->getDOFDistribution(patch);
-    //update #8 @6
-    int* th_ptr = d_dof_info_th->getDOFDistribution(patch);
-
-    /// 为分布和映射数组赋值
-    for (int i = 0; i < num_nodes; ++i) {
-      dis_ptr[i] = NDIM;
-      th_ptr[i]=1; //update #8 @6
+    if (component_name == "INIT") { /*初始化矢量有限元 */
+      initializeFEMComp(patch, time, initial_time,component_name);
     }
 
-    /// 建立映射
-    d_dof_info->buildPatchDOFMapping(patch);
+  }
+}
 
-    d_dof_info_th->buildPatchDOFMapping(patch);//update #8 @6
+/*************************************************************************
+ *  初始化所有数据片（如材料参数、自由度等）（支持初值构件）.
+ ************************************************************************/
+void PatchStrategy::initializeFEMComp(hier::Patch<NDIM>& patch,
+                                      const double time,
+                                      const bool initial_time,
+                                      const string& component_name){
+  tbox::Pointer<pdat::NodeData<NDIM, double> > plot =
+      patch.getPatchData(d_plot_id);
+  tbox::Pointer<pdat::CellData<NDIM, double> > str =
+      patch.getPatchData(d_stress_id);
 
-    /// 初始化tool domain信息
-    for(int cc = 0; cc < num_local_cells; cc++){
-      (*volume)(0, cc) = tetrahedron.volume(cc);
-      tetrahedron.jacobian(cc, &((*jacobian)(0, cc)));
-      bool is_computed = false;
-      /// 遍历需要关注的域
-      for(int von_id = 0; von_id < d_improved_stress.size();von_id++){
-        if (HAS_ENTITY_SET(patch, d_improved_stress[von_id], CELL, 1)){
-          DECLARE_ENTITY_SET(patch, improved_stress_space,
-                             d_improved_stress[von_id], CELL, 1);
-          std::sort(improved_stress_space.getPointer(),
-                    improved_stress_space.getPointer() + improved_stress_space.size());
-          bool is_computed_cell =
-              std::binary_search(improved_stress_space.getPointer(),
-                                 improved_stress_space.getPointer()+improved_stress_space.size(),
-                                 cc);
-          bool is_neighbor_computed = false;
-          for(int c2 = 0; c2<cell_cell_ext[cc+1]-cell_cell_ext[cc]; c2++){
-            int cc2 = cell_cell_idx[cell_cell_ext[cc]+c2];
-            is_neighbor_computed
-                = std::binary_search(improved_stress_space.getPointer(),
-                                     improved_stress_space.getPointer()+improved_stress_space.size(),
-                                     cc2);
-            /// 一旦它变成true就直接退出
-            if (is_neighbor_computed == true)
-              break;
-          }
-          /// 任意一个满足就置true
-          if(is_computed_cell||is_neighbor_computed) is_computed = true;
+  //update #2
+  tbox::Pointer<pdat::CellData<NDIM, double> > von_Mises =
+      patch.getPatchData(d_von_mises_id);
+
+  //update #8 @6
+  tbox::Pointer<pdat::NodeData<NDIM, double> > th_plot =
+      patch.getPatchData(th_plot_id);
+  tbox::Pointer<pdat::NodeData<NDIM, double> > th_Told =
+      patch.getPatchData(th_Told_id);
+  tbox::Pointer<pdat::NodeData<NDIM, double> > th_Tolder =
+      patch.getPatchData(th_Tolder_id);
+
+  //update #1 @5
+  tbox::Pointer<pdat::CellData<NDIM, int> > entityid_data =
+      patch.getPatchData(entity_num_id);
+  tbox::Pointer<pdat::CellData<NDIM, int> > materialid_data =
+      patch.getPatchData(material_num_id);
+
+  //update #4 @5
+  tbox::Pointer<pdat::NodeData<NDIM, double> >disp_node =
+      patch.getPatchData(d_displacement_id);
+
+  //update #9
+  tbox::Pointer<pdat::NodeData<NDIM, double> >voltage_node =
+      patch.getPatchData(E_plot_id);
+  tbox::Pointer<pdat::CellData<NDIM, double> > electric_data =
+      patch.getPatchData(E_mag_id);
+  tbox::Pointer<pdat::CellData<NDIM, double> > tool_domain =
+      patch.getPatchData(d_tool_domain_id);
+  tbox::Pointer<pdat::CellData<NDIM, double> > improved_coef =
+      patch.getPatchData(d_improved_coefficient_id);
+  tbox::Pointer<pdat::CellData<NDIM, double> > plot_coef =
+      patch.getPatchData(d_output_coefficient_id);
+
+  tbox::Pointer<pdat::CellData<NDIM, int> > is_on_bnd =
+      patch.getPatchData(d_contained_domain_id);
+  DECLARE_ADJACENCY(patch,cell,face,Cell,Face);
+  DECLARE_ADJACENCY(patch,face,cell,Face,Cell);
+  DECLARE_ADJACENCY(patch,cell,cell,Cell,Cell);
+
+
+  tbox::Pointer<pdat::CellData<NDIM, double> > jacobian =
+      patch.getPatchData(d_Cell_jacobian_id);
+  tbox::Pointer<pdat::CellData<NDIM, double> > volume=
+      patch.getPatchData(d_Cell_volume_id);
+  JAUMIN::appu::TetGeom tetrahedron(patch);
+
+
+
+  // 获取当前网格片的单元，结点数目.
+  int num_nodes = patch.getNumberOfNodes(1);
+  int num_local_nodes = patch.getNumberOfNodes();
+  int num_local_cells = patch.getNumberOfCells();
+  int num_cells = patch.getNumberOfCells(1);
+
+  /// 获取自由度分布和映射数组的指针首地址
+  int* dis_ptr = d_dof_info->getDOFDistribution(patch);
+  //update #8 @6
+  int* th_ptr = d_dof_info_th->getDOFDistribution(patch);
+
+  /// 为分布和映射数组赋值
+  for (int i = 0; i < num_nodes; ++i) {
+    dis_ptr[i] = NDIM;
+    th_ptr[i]=1; //update #8 @6
+  }
+
+  /// 建立映射
+  d_dof_info->buildPatchDOFMapping(patch);
+
+  d_dof_info_th->buildPatchDOFMapping(patch);//update #8 @6
+
+  /// 初始化tool domain信息
+  for(int cc = 0; cc < num_local_cells; cc++){
+    (*volume)(0, cc) = tetrahedron.volume(cc);
+    tetrahedron.jacobian(cc, &((*jacobian)(0, cc)));
+    bool is_computed = false;
+    /// 遍历需要关注的域
+    for(int von_id = 0; von_id < d_improved_stress.size();von_id++){
+      if (HAS_ENTITY_SET(patch, d_improved_stress[von_id], CELL, 1)){
+        DECLARE_ENTITY_SET(patch, improved_stress_space,
+                           d_improved_stress[von_id], CELL, 1);
+        std::sort(improved_stress_space.getPointer(),
+                  improved_stress_space.getPointer() + improved_stress_space.size());
+        bool is_computed_cell =
+            std::binary_search(improved_stress_space.getPointer(),
+                               improved_stress_space.getPointer()+improved_stress_space.size(),
+                               cc);
+        bool is_neighbor_computed = false;
+        for(int c2 = 0; c2<cell_cell_ext[cc+1]-cell_cell_ext[cc]; c2++){
+          int cc2 = cell_cell_idx[cell_cell_ext[cc]+c2];
+          is_neighbor_computed
+              = std::binary_search(improved_stress_space.getPointer(),
+                                   improved_stress_space.getPointer()+improved_stress_space.size(),
+                                   cc2);
+          /// 一旦它变成true就直接退出
+          if (is_neighbor_computed == true)
+            break;
         }
-
+        /// 任意一个满足就置true
+        if(is_computed_cell||is_neighbor_computed) is_computed = true;
       }
-      bool is_tool = true;
-      if(cell_cell_ext[cc+1]-cell_cell_ext[cc]<4) is_tool = false;
-      /// 可以被当作工具域中心，且需要计算
-      if(is_tool && is_computed) (*is_on_bnd)(0,cc) = 1;
-      /// 不能被当作工作域中心，但需要计算
-      if(!is_tool && is_computed) (*is_on_bnd)(0,cc) = 0;
-      /// 不需要计算
-      if(!is_computed) (*is_on_bnd)(0,cc) = -1;
+
     }
+    bool is_tool = true;
+    if(cell_cell_ext[cc+1]-cell_cell_ext[cc]<4) is_tool = false;
+    /// 可以被当作工具域中心，且需要计算
+    if(is_tool && is_computed) (*is_on_bnd)(0,cc) = 1;
+    /// 不能被当作工作域中心，但需要计算
+    if(!is_tool && is_computed) (*is_on_bnd)(0,cc) = 0;
+    /// 不需要计算
+    if(!is_computed) (*is_on_bnd)(0,cc) = -1;
+  }
 
-    /// 初始化普通数据片
-    for (int i = 0; i < num_local_nodes; ++i) {
-      for (int j = 0; j < NDIM; ++j) (*plot)(j, i) = 0;
-      (*th_plot)(0,i)=293.15;//update #8 @6
-      (*voltage_node)(0,i)=0;
-    }
+  /// 初始化普通数据片
+  for (int i = 0; i < num_local_nodes; ++i) {
+    for (int j = 0; j < NDIM; ++j) (*plot)(j, i) = 0;
+    (*th_plot)(0,i)=293.15;//update #8 @6
+    (*voltage_node)(0,i)=0;
+  }
 
-    for (int i = 0; i < num_local_cells; ++i) {
-      for (int j = 0; j < 6; ++j) (*str)(j, i) = 0.0;
-      (*von_Mises)(0,i)=0;
-      for(int j = 0; j < 6 * (NDIM+1); j ++){
-        (*improved_coef)(j,i) = 0.;
-        (*plot_coef)(j,i) = 0.;
-      }
-    }
-
-    for (int i = 0; i < num_nodes; ++i) {
-      (*th_Told)(0,i)=293.15;//update #8 @6
-      (*th_Tolder)(0,i)=293.15;//update #8 @6
-    }
-    //cout<<"initial half2"<<endl;
-    for (int iii = 0; iii < num_cells; ++iii) {
-      (*electric_data)(0,iii) = 0.0;
-    }
-    // cout<<"initial half3"<<endl;
-    //update #4 @6
-    for (int i = 0; i < num_nodes; ++i) {
-      (*disp_node)(0, i) = 0.0;
-    }
-
-    // cout<<"initial half4"<<endl;
-    /// 对EntityIdOfCell数据片初始化   update #1 @6
-
-    //int copper_id_len=sizeof(Copper_id)/sizeof(Copper_id[0]);
-    //int silicon_id_len=sizeof(Silicon_id)/sizeof(Silicon_id[0]);
-    int SiO2_id_len=sizeof(SiO2_id)/sizeof(SiO2_id[0]);
-    //int SiN_id_len=sizeof(BCB_id)/sizeof(BCB_id[0]);
-    int Copper_id_len=sizeof(Copper_id)/sizeof(Copper_id[0]);
-    int Aluminum_id_len=sizeof(Aluminum_id)/sizeof(Aluminum_id[0]);
-    int GaN_id_len=sizeof(GaN_id)/sizeof(GaN_id[0]);
-    int Al2O3_id_len=sizeof(Al2O3_id)/sizeof(Al2O3_id[0]);
-    int Alloy_id_len=sizeof(Alloy_id)/sizeof(Alloy_id[0]);
-    int Silicon_id_len=sizeof(Silicon_id)/sizeof(Silicon_id[0]);
-
-
-    for(int e_id=1;e_id<(ENTITY_NUM+1);e_id++)
-    {
-      if (!patch.getPatchGeometry()->hasEntitySet
-          (e_id, hier::EntityUtilities::CELL, patch.getNumberOfCells(1)))
-        continue;
-      tbox::Array<int> cells =  patch.getPatchGeometry()->getEntityIndicesInSet
-          (e_id, hier::EntityUtilities::CELL, patch.getNumberOfCells(1));
-      for(int ii=0;ii<cells.size();ii++)
-      {
-        (*entityid_data)(0,cells[ii])=e_id;
-      }
-    }
-    //cout<<"initial half2"<<endl;
-    for (int iii = 0; iii < num_cells; ++iii) {
-      (*materialid_data)(0,iii)=3;//Au
-      // for(int m_id=0;m_id<copper_id_len;m_id++)
-
-
-      for(int m_id=0;m_id<Aluminum_id_len;m_id++)
-        if((*entityid_data)(0,iii)==Aluminum_id[m_id])
-        {(*materialid_data)(0,iii)=6;}
-
-      for(int m_id=0;m_id<GaN_id_len;m_id++)
-        if((*entityid_data)(0,iii)==GaN_id[m_id])
-        {(*materialid_data)(0,iii)=15;}
-
-
-      for(int m_id=0;m_id<Copper_id_len;m_id++)
-        if((*entityid_data)(0,iii)==Copper_id[m_id])
-        {(*materialid_data)(0,iii)=2;}
-
-
-
-      for(int m_id=0;m_id<Al2O3_id_len;m_id++)
-        if((*entityid_data)(0,iii)==Al2O3_id[m_id])
-        {(*materialid_data)(0,iii)=16;}
-
-      for(int m_id=0;m_id<Alloy_id_len;m_id++)
-        if((*entityid_data)(0,iii)==Alloy_id[m_id])
-        {(*materialid_data)(0,iii)=2;}
-      for(int m_id=0;m_id<Silicon_id_len;m_id++)
-        if((*entityid_data)(0,iii)==Silicon_id[m_id])
-        {(*materialid_data)(0,iii)=1;}
-      for(int m_id=0;m_id<SiO2_id_len;m_id++)
-        if((*entityid_data)(0,iii)==SiO2_id[m_id])
-        {(*materialid_data)(0,iii)=4;}
-
-
-
-      // for(int m_id=0;m_id<SiN_id_len;m_id++)
-      //  if((*entityid_data)(0,iii)==BCB_id[m_id])
-      //   {(*materialid_data)(0,iii)=9;break;}
+  for (int i = 0; i < num_local_cells; ++i) {
+    for (int j = 0; j < 6; ++j) (*str)(j, i) = 0.0;
+    (*von_Mises)(0,i)=0;
+    for(int j = 0; j < 6 * (NDIM+1); j ++){
+      (*improved_coef)(j,i) = 0.;
+      (*plot_coef)(j,i) = 0.;
     }
   }
+
+  for (int i = 0; i < num_nodes; ++i) {
+    (*th_Told)(0,i)=293.15;//update #8 @6
+    (*th_Tolder)(0,i)=293.15;//update #8 @6
+  }
+  //cout<<"initial half2"<<endl;
+  for (int iii = 0; iii < num_cells; ++iii) {
+    (*electric_data)(0,iii) = 0.0;
+  }
+  // cout<<"initial half3"<<endl;
+  //update #4 @6
+  for (int i = 0; i < num_nodes; ++i) {
+    (*disp_node)(0, i) = 0.0;
+  }
+
+  // cout<<"initial half4"<<endl;
+  /// 对EntityIdOfCell数据片初始化   update #1 @6
+
+  //int copper_id_len=sizeof(Copper_id)/sizeof(Copper_id[0]);
+  //int silicon_id_len=sizeof(Silicon_id)/sizeof(Silicon_id[0]);
+  int SiO2_id_len=sizeof(SiO2_id)/sizeof(SiO2_id[0]);
+  //int SiN_id_len=sizeof(BCB_id)/sizeof(BCB_id[0]);
+  int Copper_id_len=sizeof(Copper_id)/sizeof(Copper_id[0]);
+  int Aluminum_id_len=sizeof(Aluminum_id)/sizeof(Aluminum_id[0]);
+  int GaN_id_len=sizeof(GaN_id)/sizeof(GaN_id[0]);
+  int Al2O3_id_len=sizeof(Al2O3_id)/sizeof(Al2O3_id[0]);
+  int Alloy_id_len=sizeof(Alloy_id)/sizeof(Alloy_id[0]);
+  int Silicon_id_len=sizeof(Silicon_id)/sizeof(Silicon_id[0]);
+
+
+  for(int e_id=1;e_id<(ENTITY_NUM+1);e_id++)
+  {
+    if (!patch.getPatchGeometry()->hasEntitySet
+        (e_id, hier::EntityUtilities::CELL, patch.getNumberOfCells(1)))
+      continue;
+    tbox::Array<int> cells =  patch.getPatchGeometry()->getEntityIndicesInSet
+        (e_id, hier::EntityUtilities::CELL, patch.getNumberOfCells(1));
+    for(int ii=0;ii<cells.size();ii++)
+    {
+      (*entityid_data)(0,cells[ii])=e_id;
+    }
+  }
+  //cout<<"initial half2"<<endl;
+  for (int iii = 0; iii < num_cells; ++iii) {
+    (*materialid_data)(0,iii)=3;//Au
+    // for(int m_id=0;m_id<copper_id_len;m_id++)
+
+
+    for(int m_id=0;m_id<Aluminum_id_len;m_id++)
+      if((*entityid_data)(0,iii)==Aluminum_id[m_id])
+      {(*materialid_data)(0,iii)=6;}
+
+    for(int m_id=0;m_id<GaN_id_len;m_id++)
+      if((*entityid_data)(0,iii)==GaN_id[m_id])
+      {(*materialid_data)(0,iii)=15;}
+
+
+    for(int m_id=0;m_id<Copper_id_len;m_id++)
+      if((*entityid_data)(0,iii)==Copper_id[m_id])
+      {(*materialid_data)(0,iii)=2;}
+
+
+
+    for(int m_id=0;m_id<Al2O3_id_len;m_id++)
+      if((*entityid_data)(0,iii)==Al2O3_id[m_id])
+      {(*materialid_data)(0,iii)=16;}
+
+    for(int m_id=0;m_id<Alloy_id_len;m_id++)
+      if((*entityid_data)(0,iii)==Alloy_id[m_id])
+      {(*materialid_data)(0,iii)=2;}
+    for(int m_id=0;m_id<Silicon_id_len;m_id++)
+      if((*entityid_data)(0,iii)==Silicon_id[m_id])
+      {(*materialid_data)(0,iii)=1;}
+    for(int m_id=0;m_id<SiO2_id_len;m_id++)
+      if((*entityid_data)(0,iii)==SiO2_id[m_id])
+      {(*materialid_data)(0,iii)=4;}
+
+
+
+    // for(int m_id=0;m_id<SiN_id_len;m_id++)
+    //  if((*entityid_data)(0,iii)==BCB_id[m_id])
+    //   {(*materialid_data)(0,iii)=9;break;}
+  }
+
 }
 
 /*************************************************************************

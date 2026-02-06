@@ -70,6 +70,13 @@ void ElasFlow::initializeLevelIntegrator(
   /// 初始化构件.
   d_init_intc = new algs::InitializeIntegratorComponent<NDIM>(
         "INIT", d_patch_strategy, manager);
+  /// 在进程0上进行所有的进程初始化
+  d_init_proc0_intc = new algs::InitializeIntegratorComponent<NDIM>(
+        "INIT_PROC_0", d_patch_strategy, manager);
+  /// 重分布构件
+  d_rebalance_intc = new algs::RebalanceIntegratorComponent<NDIM>(
+        "REBALANCE",d_patch_strategy, manager);
+
   // 数值构件: 更新结点坐标.
   d_num_intc_displacement = new algs::NumericalIntegratorComponent<NDIM>(
         "DISPLACEMENT", d_patch_strategy, manager);
@@ -324,6 +331,7 @@ int ElasFlow::advanceLevel(
   /// 设置解法器
   d_solver_s_dual->setMatrix(mat_id);
   d_solver_s_dual->setRHS(dual_vec_id);
+  d_solver_s_dual->solve(first_step, dual_sol_id, patch_level, d_solver_db->getDatabase ("SolverDualStress"));
 
   tbox::pout<<"recovery "<<endl;
   t_fem_post->start();
