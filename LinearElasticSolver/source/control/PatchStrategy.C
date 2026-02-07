@@ -341,6 +341,11 @@ void PatchStrategy::registerModelVariable() {
   REGISTER_VARIABLE(d_dual_STRESS_solution_id, dual_solution, current, 1);
   REGISTER_VARIABLE(d_dual_STRESS_rhs_id, dual_rhs, current, 1);
 
+  DECLARE_VARIABLE(Cell_Temperature,Cell,double,1,1);
+  REGISTER_VARIABLE(d_Cell_Temperature_id, Cell_Temperature, current, 1);
+
+
+
 
 }
 
@@ -393,6 +398,9 @@ void PatchStrategy::initializeComponent(
     component->registerInitPatchData(dual_face_jump_stress_id);
     component->registerInitPatchData(dual_volume_res_stress_id);
     component->registerInitPatchData(dual_cell_error_MECHANICS_id);
+
+    /// 插值得到的温度数据
+    component->registerInitPatchData(d_Cell_Temperature_id);
     /// 将dofInfo中的数据片注册到初始化构件。
     d_dof_info->registerToInitComponent(component);
     //update #8 @4

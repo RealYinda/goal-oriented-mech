@@ -807,5 +807,8 @@ private:
   int d_Cell_volume_id;
   int d_Cell_jacobian_id;
 
+  /// 使用插值到的温度
+  int d_Cell_Temperature_id;
+
 };
 #endif
