@@ -2,3 +2,4 @@ mphtxt2k/
 build*
 Sort/SortTool
 .vscode/
+CMakeLists.txt.user
