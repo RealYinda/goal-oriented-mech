@@ -171,6 +171,8 @@ void ElasFlow::initializeLevelData(
     const tbox::Pointer<hier::BasePatchLevel<NDIM> > level,
     const double init_data_time, const bool initial_time) {
   /// 初始化网格层上的数据.
+  d_init_proc0_intc->initializeLevelData(level,init_data_time, initial_time);
+  d_rebalance_intc->rebalance(level);
   d_init_intc->initializeLevelData(level, init_data_time, initial_time);
 }
 

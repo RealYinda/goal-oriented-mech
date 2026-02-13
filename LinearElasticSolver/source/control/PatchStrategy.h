@@ -94,6 +94,10 @@ public:
    *  vector是输入输出参数: 输入是已遍历网格片的归约结果,
    *  输出是输入值和当前网格片计算结果的归约值.
    */
+  ///在0号进程上初始化有限元程序
+  void initializeProc0Comp(hier::Patch<NDIM>& patch, const double time,
+                        const bool initial_time,
+                        const string& component_name);
   ///初始化有限元函数
   void initializeFEMComp(hier::Patch<NDIM>& patch, const double time,
                         const bool initial_time,
@@ -760,6 +764,7 @@ private:
   int th_plot_id;
   int th_Told_id;
   int th_Tolder_id;
+
 
   //update #9 电计算相关变量
   int E_solution_id;

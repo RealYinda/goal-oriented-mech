@@ -341,7 +341,7 @@ void PatchStrategy::registerModelVariable() {
   REGISTER_VARIABLE(d_dual_STRESS_solution_id, dual_solution, current, 1);
   REGISTER_VARIABLE(d_dual_STRESS_rhs_id, dual_rhs, current, 1);
 
-  DECLARE_VARIABLE(Cell_Temperature,Cell,double,1,1);
+  DECLARE_VARIABLE(Cell_Temperature,Cell,double,4,1);
   REGISTER_VARIABLE(d_Cell_Temperature_id, Cell_Temperature, current, 1);
 
 
@@ -407,7 +407,12 @@ void PatchStrategy::initializeComponent(
     d_dof_info->registerToInitComponent(component);
     //update #8 @4
     d_dof_info_th->registerToInitComponent(component);
-  } else if (component_name == "ALLOC") {  // 内存构件.
+  } else if (component_name == "INIT_SERIAL")          { //初始化模式
+    component->registerInitPatchData(d_Cell_Temperature_id);
+
+  }else if (component_name == "REBALANCE")          { //初始化模式
+    component->registerPatchData(d_Cell_Temperature_id);
+  }else if (component_name == "ALLOC") {  // 内存构件.
     component->registerPatchData(d_matrix_id);
     component->registerPatchData(d_solution_id);
     component->registerPatchData(d_rhs_id);
@@ -498,6 +503,28 @@ void PatchStrategy::initializePatchData(hier::Patch<NDIM>& patch,
     }
 
   }
+}
+/// 把需要串行读入的数据在这里处理掉
+void PatchStrategy::initializeProc0Comp(hier::Patch<NDIM>& patch,
+                                      const double time,
+                                      const bool initial_time,
+                                      const string& component_name){
+  int num_cells = patch.getNumberOfCells(0);
+  GET_PATCH_DATA(patch,Cell_Temperature,d_Cell_Temperature_id,Cell,double);
+
+  string ThermalFile = "ThermalDataOut.dat";
+      std::fstream intp_file(ThermalFile.c_str());
+      string line;
+      while( getline(intp_file, line) ){
+          stringstream buf(line);
+          int cell_index,quad_index;
+          double coord[NDIM],temp_data;
+          buf >> cell_index;buf >> quad_index;
+          buf >> coord[0]>> coord[1]>> coord[2];
+          buf >> temp_data;
+          (*Cell_Temperature)(quad_index,cell_index) = temp_data;
+      }
+
 }
 
 /*************************************************************************
