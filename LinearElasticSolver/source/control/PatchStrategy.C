@@ -344,6 +344,9 @@ void PatchStrategy::registerModelVariable() {
   DECLARE_VARIABLE(Cell_Temperature,Cell,double,4,1);
   REGISTER_VARIABLE(d_Cell_Temperature_id, Cell_Temperature, current, 1);
 
+  DECLARE_VARIABLE(dual_stress,Cell,double,6,1);
+  REGISTER_VARIABLE(d_dual_stress_id, dual_stress, current, 1);
+
 
 
 
@@ -400,6 +403,8 @@ void PatchStrategy::initializeComponent(
     component->registerInitPatchData(dual_face_jump_stress_id);
     component->registerInitPatchData(dual_volume_res_stress_id);
     component->registerInitPatchData(dual_cell_error_MECHANICS_id);
+
+    component->registerInitPatchData(d_dual_stress_id);
 
     /// 插值得到的温度数据
     component->registerInitPatchData(d_Cell_Temperature_id);
@@ -538,6 +543,8 @@ void PatchStrategy::initializeFEMComp(hier::Patch<NDIM>& patch,
       patch.getPatchData(d_plot_id);
   tbox::Pointer<pdat::CellData<NDIM, double> > str =
       patch.getPatchData(d_stress_id);
+  tbox::Pointer<pdat::CellData<NDIM, double> > dual_str =
+      patch.getPatchData(d_dual_stress_id);
 
   //update #2
   tbox::Pointer<pdat::CellData<NDIM, double> > von_Mises =
@@ -660,7 +667,7 @@ void PatchStrategy::initializeFEMComp(hier::Patch<NDIM>& patch,
   }
 
   for (int i = 0; i < num_local_cells; ++i) {
-    for (int j = 0; j < 6; ++j) (*str)(j, i) = 0.0;
+    for (int j = 0; j < 6; ++j){(*str)(j, i) = 0.0;(*dual_str)(j, i) = 0.0;}
     (*von_Mises)(0,i)=0;
     for(int j = 0; j < 6 * (NDIM+1); j ++){
       (*improved_coef)(j,i) = 0.;
@@ -939,7 +946,7 @@ void PatchStrategy::computeOnPatch(hier::Patch<NDIM>& patch, const double time,
   if (component_name == "MAT") {
     buildMatrixOnPatch(patch, time, dt, component_name);
   } else if (component_name == "RHS") {
-    buildRHSOnPatch(patch, time, dt, component_name);
+    buildSTRESSprimalRHSOnPatch(patch, time, dt, component_name);
   } else if (component_name == "LOAD") {
     applyLoad(patch, time, dt, component_name);
   } else if (component_name == "CONS") {
@@ -948,6 +955,9 @@ void PatchStrategy::computeOnPatch(hier::Patch<NDIM>& patch, const double time,
     updateCoordinate(patch, time, dt, component_name);
   } else if (component_name == "STRESS") {  // 数值构件, 计算应力.
     computeStress(patch, time, dt, component_name);
+    if(d_error_estimation_type == 2){
+      computeDualStress(patch, time, dt, component_name);
+    }
   } else if (component_name == "RECOVERY") {  // 数值构件, 计算应力.
     StressRecovery(patch, time, dt, component_name);
   } else if (component_name == "POSTPROCESS") {  // 数值构件, 计算应力.
@@ -1245,6 +1255,186 @@ void PatchStrategy::computeStress(hier::Patch<NDIM>& patch, const double time,
         pow((stress[2]-stress[0]),2)+6*(stress[3]*stress[3]+stress[4]*stress[4]+stress[5]*stress[5]);
 
     (*von_Mises)(0,i)=sqrt(temp_v/2);
+  }
+}
+
+
+void PatchStrategy::computeDualStress(hier::Patch<NDIM>& patch, const double time,
+                                  const double dt,
+                                  const string& component_name) {
+  /// 取出本地PatchGeometry.
+  tbox::Pointer<hier::PatchGeometry<NDIM> > patch_geo =
+      patch.getPatchGeometry();
+  /// 取出本地PatchTopology.
+  tbox::Pointer<hier::PatchTopology<NDIM> > patch_top =
+      patch.getPatchTopology();
+  /// 取出本地Patch的结点坐标数组.
+  tbox::Pointer<pdat::NodeData<NDIM, double> > node_coord =
+      patch_geo->getNodeCoordinates();
+  tbox::Pointer<pdat::VectorData<NDIM, double> > vec_data =
+      patch.getPatchData(d_solution_id);
+
+  tbox::Pointer<pdat::CellData<NDIM, double> > str_data =
+      patch.getPatchData(d_dual_stress_id);
+
+  //取前一步的温度分布
+  tbox::Pointer<pdat::NodeData<NDIM, double> > T_data =
+      patch.getPatchData(th_Told_id);//
+
+  /// 获取单元对应实体编号数组对象 update #3 at 2017-04-21 by tong @1
+  tbox::Pointer<pdat::CellData<NDIM, int> > entityid_data =
+      patch.getPatchData(entity_num_id);
+  tbox::Pointer<pdat::CellData<NDIM, int> > materialid_data =
+      patch.getPatchData(material_num_id);
+
+  int* dof_map = d_dof_info->getDOFMapping(patch, hier::EntityUtilities::NODE);
+
+  /// 获取单元周围结点的索引关系.
+  tbox::Array<int> can_extent, can_indices;
+  patch_top->getCellAdjacencyNodes(can_extent, can_indices);
+
+
+
+
+  int num_cells = patch.getNumberOfCells();
+
+  for (int i = 0; i < num_cells; ++i) {
+    int n_vertex = can_extent[i + 1] - can_extent[i];
+    int num_dof = NDIM * n_vertex;
+
+    /**< 该单元的结点坐标及自由度映射 */
+    tbox::Array<hier::DoubleVector<NDIM> > vertex(n_vertex);
+    tbox::Array<int> node_mapping(num_dof);
+    tbox::Array<double> T_val(n_vertex);
+
+    /// 下面的循环做两件事情：1. 建立自由度映射数组；2.取出结点坐标。
+    for (int i1 = 0, j = can_extent[i]; i1 < n_vertex; ++i1, ++j) {
+      T_val[i1]=T_data->getPointer()[can_indices[j]];
+      for (int k = 0; k < NDIM; ++k) {
+        node_mapping[NDIM * i1 + k] = dof_map[can_indices[j]] + k;
+        vertex[i1][k] = (*node_coord)(k, can_indices[j]);
+      }
+    }
+
+    /// 取出积分器对象.
+    tbox::Pointer<IntegratorManager<NDIM> > integrator_manager =
+        IntegratorManager<NDIM>::getManager();
+    tbox::Pointer<BaseIntegrator<NDIM> > integrator =
+        integrator_manager->getIntegrator("LinearTetrahedron");
+
+    /// 取出形函数对象.
+    tbox::Pointer<ShapeFunctionManager<NDIM> > shape_manager =
+        ShapeFunctionManager<NDIM>::getManager();
+    tbox::Pointer<BaseShapeFunction<NDIM> > shape_func =
+        shape_manager->getShapeFunction("LinearTetrahedron");
+
+    /// 取出材料.
+    tbox::Pointer<MaterialManager<NDIM> > material_manager =
+        MaterialManager<NDIM>::getManager();
+
+    //update #3: @2 给不同实体中的单元赋不同的材料
+    //实体1（或者实体集1）：Copper
+    //实体2（或者实体集2）：Silicon
+    //默认：Air
+    //at 2017-04-21 by tong
+
+    tbox::Pointer<Material> material =
+        material_manager->getMaterial("Gold");
+
+    if((*materialid_data)(0,i)==1)
+      material =	material_manager->getMaterial("Silicon");
+    else if((*materialid_data)(0,i)==13)
+      material =	material_manager->getMaterial("MoCu");
+    else if((*materialid_data)(0,i)==2)
+      material =	material_manager->getMaterial("Copper");
+    else if((*materialid_data)(0,i)==4)
+      material =	material_manager->getMaterial("SiO2");
+    else if((*materialid_data)(0,i)==5)
+      material =	material_manager->getMaterial("SiN");
+    else if((*materialid_data)(0,i)==3)
+      material =	material_manager->getMaterial("Gold");
+    else if((*materialid_data)(0,i)==15)
+      material =	material_manager->getMaterial("GaN");
+    else if((*materialid_data)(0,i)==16)
+      material =	material_manager->getMaterial("Al2O3");
+    else if((*materialid_data)(0,i)==17)
+      material =	material_manager->getMaterial("Alloy");
+    else if((*materialid_data)(0,i)==6)
+      material =	material_manager->getMaterial("Aluminum");
+    else
+      material =	material_manager->getMaterial("Gold");
+
+    double temp_T=0;
+    for(int t=0;t<4;t++)
+    {temp_T+=T_val[t]/4;}
+    //double Sigma=material->getSigma(temp_T);
+
+    /// 取出自由度数目.
+    int n_dof = shape_func->getNumberOfDof();
+
+    /// 取出积分点数目.
+    int num_quad_pnts = integrator->getNumberOfQuadraturePoints();
+
+    /// 取出积分点.
+    tbox::Array<hier::DoubleVector<NDIM> > quad_pnt =
+        integrator->getQuadraturePoints(vertex);
+
+    /// 取出积分点的积分权重.
+    tbox::Array<double> weight = integrator->getQuadratureWeights();
+
+    /// 取出基函数在积分点的值和梯度值.
+    tbox::Array<tbox::Array<tbox::Array<double> > > bas_grad =
+        shape_func->gradient(vertex, quad_pnt);
+
+    /// 取出模量矩阵
+    tbox::Array<tbox::Array<double> > moduli = material->getModuli(temp_T);
+    /// \lambda
+    double a = moduli[0][0];
+    /// G
+    double b = moduli[0][1];
+    /// \lambda+2G
+    double c = moduli[3][3];
+
+    tbox::Array<double> stress(6);
+
+    /// 计算单元应力.
+    for (int i1 = 0; i1 < 6; ++i1) stress[i1] = 0.0;
+    for (int l = 0; l < num_quad_pnts; ++l) {
+      /// 该点的积分权重.
+      double w = weight[l];
+
+      /// 初始化位移在积分点的梯度值.
+      double u_grad[NDIM][NDIM];
+      for (int i1 = 0; i1 < NDIM; ++i1) {
+        for (int j1 = 0; j1 < NDIM; ++j1) {
+          u_grad[i1][j1] = 0.0;
+        }
+      }
+
+      /// 计算位移在积分点的梯度值.
+      for (int i1 = 0; i1 < n_dof; ++i1) {
+        double* tmp_val = &(vec_data->getPointer()[node_mapping[NDIM * i1]]);
+        for (int j1 = 0; j1 < NDIM; ++j1) {
+          for (int k1 = 0; k1 < NDIM; ++k1) {
+            u_grad[j1][k1] += tmp_val[j1] * bas_grad[l][i1][k1];
+          }
+        }
+      }
+
+      /// 计算单元应力.
+      stress[0] += w * (a * u_grad[0][0] + b * (u_grad[1][1] + u_grad[2][2]));
+      stress[1] += w * (a * u_grad[1][1] + b * (u_grad[0][0] + u_grad[2][2]));
+      stress[2] += w * (a * u_grad[2][2] + b * (u_grad[1][1] + u_grad[0][0]));
+      stress[3] += w * c * (u_grad[0][1] + u_grad[1][0]);
+      stress[4] += w * c * (u_grad[1][2] + u_grad[2][1]);
+      stress[5] += w * c * (u_grad[0][2] + u_grad[2][0]);
+    }
+
+    /// 将单元应力回填到应力数据片.
+    for (int j = 0; j < 6; ++j) {
+      (*str_data)(j, i) = stress[j];
+    }
+
   }
 }
 
@@ -1830,13 +2020,14 @@ void PatchStrategy::StressRecovery(hier::Patch<NDIM>& patch, const double time,
 void PatchStrategy::STRESS_ErrorEst(hier::Patch<NDIM>& patch, const double time,
                                    const double dt, const string& component_name){
   int num_faces = patch.getNumberOfFaces(0);
+  int num_cells = patch.getNumberOfCells(0);
   for(int ff = 0; ff < num_faces; ff++){
     if(d_error_estimation_type  == 1){
-      PrimalStressErrorEst(patch,ff);
+      PrimalStressErrorEstOnFace(patch,ff);
     }
     else if(d_error_estimation_type  == 2){
-      PrimalStressErrorEst(patch,ff);
-      DualStressErrorEst(patch,ff);
+      PrimalStressErrorEstOnFace(patch,ff);
+      DualStressErrorEstOnFace(patch,ff);
     }
 
 
@@ -1844,13 +2035,17 @@ void PatchStrategy::STRESS_ErrorEst(hier::Patch<NDIM>& patch, const double time,
 
 
 }
-void PrimalStressErrorEst(hier::Patch<NDIM>& patch, int face){
+void PatchStrategy::PrimalStressErrorEstOnFace(hier::Patch<NDIM>& patch, int face){
   DECLARE_ADJACENCY(patch,face,cell,Face,Cell);
   DECLARE_ADJACENCY(patch,face,node,Face,Node);
   DECLARE_ADJACENCY(patch,cell,node,Cell,Node);
+  GET_PATCH_DATA(patch,stress_voigt,d_stress_id,Cell,double);
+  GET_PATCH_DATA(patch,primal_face_jump_stress,primal_face_jump_stress_id,Face,double);
   double outer_normal[NDIM], outer_normal_raw[NDIM];
   int cell = face_cell_idx[face_cell_ext[face]];
-  /// 计算面的外法向张量
+  /// 六分量应力张量
+  int voigt_num = 6;
+  /// 计算面的外法向张量，这里的外法向参考单元是第一个单元
   outerNormal(cell_node_ext[cell+1]-cell_node_ext[cell],
       cell_node_idx.getPointer() + cell_node_ext[cell],
       face_node_ext[face+1]-face_node_ext[face],
@@ -1860,13 +2055,108 @@ void PrimalStressErrorEst(hier::Patch<NDIM>& patch, int face){
       NDIM,
       outer_normal,
       outer_normal_raw);
-  tbox::Matrix<double> Tensor_normal(3,6);
+  /// 取得该表面上的法向张量
+  tbox::Matrix<double> Tensor_normal(NDIM,voigt_num);
   Tensor_normal[0][0] = outer_normal[0];Tensor_normal[1][0] = 0;Tensor_normal[2][0] = 0;
   Tensor_normal[0][1] = 0;Tensor_normal[1][1] = outer_normal[1];Tensor_normal[2][1] = 0;
   Tensor_normal[0][2] = 0;Tensor_normal[1][2] = 0;Tensor_normal[2][2] = outer_normal[2];
   Tensor_normal[0][3] = outer_normal[1];Tensor_normal[1][3] = outer_normal[0];Tensor_normal[2][3] = 0;
   Tensor_normal[0][4] = 0;Tensor_normal[1][4] = outer_normal[2];Tensor_normal[2][4] = outer_normal[1];
   Tensor_normal[0][5] = outer_normal[2];Tensor_normal[1][5] = 0;Tensor_normal[2][5] = outer_normal[0];
+  /// 局部的体单元数量
+  int num_loc_cc = face_cell_ext[face+1]-face_cell_ext[face];
+  /// 内部单元的处理方法
+  if(num_loc_cc > 1){
+    /// 第一个局部单元
+    int cell_plus = face_cell_idx[face_cell_ext[face]];
+    /// 第二个局部单元
+    int cell_minus = face_cell_idx[face_cell_ext[face]+1];
+    /// 通过两个单元估计得到的应力值
+    tbox::Vector<double> StressCellPlus(voigt_num);
+    tbox::Vector<double> StressCellMinus(voigt_num);
+    for(int vv = 0; vv < voigt_num; vv ++){
+      StressCellPlus[vv] = (*stress_voigt)(vv,cell_plus);
+      StressCellMinus[vv] = (*stress_voigt)(vv,cell_minus);
+    }
+    /// 与法向量相乘后得到的迹
+    tbox::Vector<double> TraceCellPlus(NDIM);
+    tbox::Vector<double> TraceCellMinus(NDIM);
+    TraceCellPlus = Tensor_normal*StressCellPlus;TraceCellMinus = Tensor_normal*StressCellMinus;
+    double face_area = sqrt(dotProduct(NDIM, outer_normal_raw, outer_normal_raw))/ 2.0;
+    tbox::Vector<double> TraceDifFace(NDIM);
+    TraceDifFace = TraceCellPlus-TraceCellMinus;
+    /// sqrt{/varint {v\cdot v*}dS}
+    double jump_value
+        = face_area*((TraceDifFace[0]*TraceDifFace[0])+(TraceDifFace[1]*TraceDifFace[1])+(TraceDifFace[2]*TraceDifFace[2]));
+    (*primal_face_jump_stress)(0,face) = sqrt(jump_value);
+  }
+  else{
+    /// 在本代码的前提下，边界上的面统一设置为0
+    (*primal_face_jump_stress)(0,face) = 0;
+  }
+
+}
+
+void PatchStrategy::DualStressErrorEstOnFace(hier::Patch<NDIM>& patch, int face){
+  DECLARE_ADJACENCY(patch,face,cell,Face,Cell);
+  DECLARE_ADJACENCY(patch,face,node,Face,Node);
+  DECLARE_ADJACENCY(patch,cell,node,Cell,Node);
+  GET_PATCH_DATA(patch,dual_stress_voigt,d_dual_stress_id,Cell,double);
+  GET_PATCH_DATA(patch,dual_face_jump_stress,dual_face_jump_stress_id,Face,double);
+  double outer_normal[NDIM], outer_normal_raw[NDIM];
+  int cell = face_cell_idx[face_cell_ext[face]];
+  /// 六分量应力张量
+  int voigt_num = 6;
+  /// 计算面的外法向张量，这里的外法向参考单元是第一个单元
+  outerNormal(cell_node_ext[cell+1]-cell_node_ext[cell],
+      cell_node_idx.getPointer() + cell_node_ext[cell],
+      face_node_ext[face+1]-face_node_ext[face],
+      face_node_idx.getPointer() + face_node_ext[face],
+      patch.getNumberOfNodes(1),
+      patch.getPatchGeometry()->getNodeCoordinates()->getPointer(),
+      NDIM,
+      outer_normal,
+      outer_normal_raw);
+  /// 取得该表面上的法向张量
+  tbox::Matrix<double> Tensor_normal(NDIM,voigt_num);
+  Tensor_normal[0][0] = outer_normal[0];Tensor_normal[1][0] = 0;Tensor_normal[2][0] = 0;
+  Tensor_normal[0][1] = 0;Tensor_normal[1][1] = outer_normal[1];Tensor_normal[2][1] = 0;
+  Tensor_normal[0][2] = 0;Tensor_normal[1][2] = 0;Tensor_normal[2][2] = outer_normal[2];
+  Tensor_normal[0][3] = outer_normal[1];Tensor_normal[1][3] = outer_normal[0];Tensor_normal[2][3] = 0;
+  Tensor_normal[0][4] = 0;Tensor_normal[1][4] = outer_normal[2];Tensor_normal[2][4] = outer_normal[1];
+  Tensor_normal[0][5] = outer_normal[2];Tensor_normal[1][5] = 0;Tensor_normal[2][5] = outer_normal[0];
+  /// 局部的体单元数量
+  int num_loc_cc = face_cell_ext[face+1]-face_cell_ext[face];
+  /// 内部单元的处理方法
+  if(num_loc_cc > 1){
+    /// 第一个局部单元
+    int cell_plus = face_cell_idx[face_cell_ext[face]];
+    /// 第二个局部单元
+    int cell_minus = face_cell_idx[face_cell_ext[face]+1];
+    /// 通过两个单元估计得到的应力值
+    tbox::Vector<double> StressCellPlus(voigt_num);
+    tbox::Vector<double> StressCellMinus(voigt_num);
+    for(int vv = 0; vv < voigt_num; vv ++){
+      StressCellPlus[vv] = (*dual_stress_voigt)(vv,cell_plus);
+      StressCellMinus[vv] = (*dual_stress_voigt)(vv,cell_minus);
+    }
+    /// 与法向量相乘后得到的迹
+    tbox::Vector<double> TraceCellPlus(NDIM);
+    tbox::Vector<double> TraceCellMinus(NDIM);
+    TraceCellPlus = Tensor_normal*StressCellPlus;TraceCellMinus = Tensor_normal*StressCellMinus;
+    double face_area = sqrt(dotProduct(NDIM, outer_normal_raw, outer_normal_raw))/ 2.0;
+    tbox::Vector<double> TraceDifFace(NDIM);
+    TraceDifFace = TraceCellPlus-TraceCellMinus;
+    /// sqrt{/varint {v\cdot v*}dS}
+    double jump_value
+        = face_area*((TraceDifFace[0]*TraceDifFace[0])+(TraceDifFace[1]*TraceDifFace[1])+(TraceDifFace[2]*TraceDifFace[2]));
+    (*dual_face_jump_stress)(0,face) = sqrt(jump_value);
+  }
+  else{
+    /// 在本代码的前提下，边界上的面统一设置为0
+    (*dual_face_jump_stress)(0,face) = 0;
+  }
+
 }
 
 
@@ -2248,7 +2538,7 @@ void PatchStrategy::Dataexplorer(hier::Patch<NDIM> &patch, const double time,
  *  update #6 @4 更改右端项
  *  基于前两步位移计算右端项
  ************************************************************************/
-void PatchStrategy::buildRHSOnPatch(hier::Patch<NDIM>& patch, const double time,
+void PatchStrategy::buildSTRESSprimalRHSOnPatch(hier::Patch<NDIM>& patch, const double time,
                                     const double dt,
                                     const string& component_name) {
 
@@ -3640,7 +3930,7 @@ void PatchStrategy::getFromInput(tbox::Pointer<tbox::Database> db) {
                << " No key `time_domain_solving' found in data." << endl);
   }
   if (db->keyExists("error_estimation_type")) {
-    d_error_estimation_type = db->getInteger("time_domain_solving");
+    d_error_estimation_type = db->getInteger("error_estimation_type");
   } else {
     TBOX_ERROR(d_object_name << ": "
                << " No key `error_estimation_type' found in data." << endl);
@@ -3650,6 +3940,12 @@ void PatchStrategy::getFromInput(tbox::Pointer<tbox::Database> db) {
   } else {
     TBOX_ERROR(d_object_name << ": "
                << " No key `goal_oriented_entity' found in data." << endl);
+  }
+  if (db->keyExists("mesh_level_coupling")) {
+    d_is_mesh_level_coupling = db->getBool("mesh_level_coupling");
+  } else {
+    TBOX_ERROR(d_object_name << ": "
+               << " No key `mesh_level_coupling' found in data." << endl);
   }
 }
 

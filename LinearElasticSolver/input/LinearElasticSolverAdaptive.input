@@ -100,6 +100,8 @@ FEM {
     error_estimation_type = 2
     // 这里的目标导向分析仅把指定位置的von Mises应力作为敏感度函数
     goal_oriented_entity = 0 
+    // 是否是网格级耦合给定的数据
+    mesh_level_coupling = TRUE
 }
 
 GridGeometry {

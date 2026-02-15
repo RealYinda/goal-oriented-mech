@@ -126,7 +126,7 @@ public:
    * @param component_name 输入参数, 字符串, 表示数值构件的名称.
    *
    */
-  void buildRHSOnPatch(hier::Patch<NDIM>& patch, const double time,
+  void buildSTRESSprimalRHSOnPatch(hier::Patch<NDIM>& patch, const double time,
                        const double dt, const string& component_name);
 
   /**
@@ -182,6 +182,18 @@ public:
    *
    */
   void computeStress(hier::Patch<NDIM>& patch, const double time,
+                     const double dt, const string& component_name);
+
+  /*!
+   * @brief 在单个网格片上计算伴随方程意义下的应力.
+   *
+   * @param patch          输入参数, 网格片类, 表示网格片.
+   * @param time           输入参数, 双精度浮点型, 表示当前时刻.
+   * @param dt             输入参数, 双精度浮点型, 表示时间步长.
+   * @param component_name 输入参数, 字符串, 表示数值构件的名称.
+   *
+   */
+  void computeDualStress(hier::Patch<NDIM>& patch, const double time,
                      const double dt, const string& component_name);
 
   /*!
@@ -435,8 +447,8 @@ public:
      * @param dt
      * @param component_name
      */
-  void PrimalStressErrorEst(hier::Patch<NDIM>& patch,int face);
-  void DualStressErrorEst(hier::Patch<NDIM>& patch,int face);
+  void PrimalStressErrorEstOnFace(hier::Patch<NDIM>& patch,int face);
+  void DualStressErrorEstOnFace(hier::Patch<NDIM>& patch,int face);
   void PostprocessStress(hier::Patch<NDIM>& patch, const double time,
                          const double dt, const string& component_name);
 
@@ -736,6 +748,8 @@ private:
   int d_error_estimation_type;
   /// 目标导向实体编号
   tbox::Array<int> d_goal_oriented_entity;
+  /// 温度数据来自单网格还是多网格
+  bool d_is_mesh_level_coupling;
   /// 输入数据库指针.
   tbox::Pointer<tbox::Database> d_input_db;
 
@@ -802,6 +816,9 @@ private:
   int dual_face_jump_stress_id;
   int dual_volume_res_stress_id;
   /// 可能使用:面上的分析应力伴随误差
+
+  int d_dual_stress_id; // 方便进行计算的伴随应力
+
   int dual_cell_error_MECHANICS_id;
 
   int d_dual_STRESS_solution_id;
