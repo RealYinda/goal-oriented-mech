@@ -2021,6 +2021,7 @@ void PatchStrategy::STRESS_ErrorEst(hier::Patch<NDIM>& patch, const double time,
                                    const double dt, const string& component_name){
   int num_faces = patch.getNumberOfFaces(0);
   int num_cells = patch.getNumberOfCells(0);
+  /// 逐个面考虑面误差
   for(int ff = 0; ff < num_faces; ff++){
     if(d_error_estimation_type  == 1){
       PrimalStressErrorEstOnFace(patch,ff);
@@ -2029,8 +2030,16 @@ void PatchStrategy::STRESS_ErrorEst(hier::Patch<NDIM>& patch, const double time,
       PrimalStressErrorEstOnFace(patch,ff);
       DualStressErrorEstOnFace(patch,ff);
     }
-
-
+  }
+  /// 逐个体考虑体误差
+  for(int cc = 0; cc < num_cells; cc++){
+    if(d_error_estimation_type  == 1){
+      PrimalStressErrorEstOnCell(patch,cc);
+    }
+    else if(d_error_estimation_type  == 2){
+      PrimalStressErrorEstOnCell(patch,cc);
+      DualStressErrorEstOnCell(patch,cc);
+    }
   }
 
 
@@ -2159,8 +2168,71 @@ void PatchStrategy::DualStressErrorEstOnFace(hier::Patch<NDIM>& patch, int face)
 
 }
 
+void PatchStrategy::PrimalStressErrorEstOnCell(hier::Patch<NDIM>& patch, int cell){
+  DECLARE_ADJACENCY(patch,cell,node,Cell,Node);
 
+  GET_PATCH_DATA(patch,material_id,material_num_id,Cell,int);
+  GET_PATCH_DATA(patch,primal_face_jump_stress,primal_face_jump_stress_id,Face,double);
+  GET_PATCH_DATA(patch,T_data,th_Told_id,Node,double);
+  GET_PATCH_DATA(patch,volume,d_Cell_volume_id,Cell,double);
+  tbox::Pointer<MaterialManager<NDIM> > material_manager =
+      MaterialManager<NDIM>::getManager();
+  /// 使用宏定义确定材料管理器
+  /// 确认材料的基础数据库
+  tbox::Pointer<Material> material = material_manager->getMaterial(GET_USER_MAT((*material_id)(0,cell)));
+  tbox::Array<double> T_val(NDIM+1); //当前温度
+  for (int nn = 0, jj = cell_node_ext[nn]; nn < NDIM+1; ++nn, ++jj)
+    T_val[nn] = T_data->getPointer()[cell_node_idx[jj]];
+  double e_temperature = (T_val[0]+T_val[1]+T_val[2]+T_val[3])/4.;
+  /// 模量矩阵
+  tbox::Array<tbox::Array<double> > moduli = material->getModuli(e_temperature);
+  double a = moduli[0][0];
+  double b = moduli[0][1];
+  /// 应变矩阵=th_stress[1 1 1 0 0 0]
+  double alpha=material->getAlpha(e_temperature);
+  /// 计算单元热应力
+  double th_stress=alpha*(e_temperature-293.15);
+  /// 计算单元热应变
+  double thermal_strain=(a+2*b)*th_stress;
+  /**
+  ************************此处没有考虑有体积力施加的情况 ***********************/
 
+  /// sqrt{/varint {v\cdot v*}dV}
+
+}
+
+void PatchStrategy::DualStressErrorEstOnCell(hier::Patch<NDIM>& patch, int cell){
+  DECLARE_ADJACENCY(patch,cell,node,Cell,Node);
+
+  GET_PATCH_DATA(patch,material_id,material_num_id,Cell,int);
+  GET_PATCH_DATA(patch,primal_face_jump_stress,primal_face_jump_stress_id,Face,double);
+  GET_PATCH_DATA(patch,T_data,th_Told_id,Node,double);
+  GET_PATCH_DATA(patch,volume,d_Cell_volume_id,Cell,double);
+  tbox::Pointer<MaterialManager<NDIM> > material_manager =
+      MaterialManager<NDIM>::getManager();
+  /// 使用宏定义确定材料管理器
+  /// 确认材料的基础数据库
+  tbox::Pointer<Material> material = material_manager->getMaterial(GET_USER_MAT((*material_id)(0,cell)));
+  tbox::Array<double> T_val(NDIM+1); //当前温度
+  for (int nn = 0, jj = cell_node_ext[nn]; nn < NDIM+1; ++nn, ++jj)
+    T_val[nn] = T_data->getPointer()[cell_node_idx[jj]];
+  double e_temperature = (T_val[0]+T_val[1]+T_val[2]+T_val[3])/4.;
+  /// 模量矩阵
+  tbox::Array<tbox::Array<double> > moduli = material->getModuli(e_temperature);
+  double a = moduli[0][0];
+  double b = moduli[0][1];
+  /// 应变矩阵=th_stress[1 1 1 0 0 0]
+  double alpha=material->getAlpha(e_temperature);
+  /// 计算单元热应力
+  double th_stress=alpha*(e_temperature-293.15);
+  /// 计算单元热应变
+  double thermal_strain=(a+2*b)*th_stress;
+  /**
+  ************************此处没有考虑有体积力施加的情况 ***********************/
+
+  /// sqrt{/varint {v\cdot v*}dV}
+
+}
 
 /// 后处理恢复指定体上的应力
 void PatchStrategy::PostprocessStress(hier::Patch<NDIM>& patch, const double time,

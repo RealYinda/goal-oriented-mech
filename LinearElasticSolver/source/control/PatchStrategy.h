@@ -447,8 +447,17 @@ public:
      * @param dt
      * @param component_name
      */
+
+
+  /// 正向问题的面误差估计
   void PrimalStressErrorEstOnFace(hier::Patch<NDIM>& patch,int face);
+  /// 伴随问题的面误差估计
   void DualStressErrorEstOnFace(hier::Patch<NDIM>& patch,int face);
+  /// 正向问题的体误差估计
+  void PrimalStressErrorEstOnCell(hier::Patch<NDIM>& patch,int cell);
+  /// 伴随问题的体误差估计
+  void DualStressErrorEstOnCell(hier::Patch<NDIM>& patch,int cell);
+
   void PostprocessStress(hier::Patch<NDIM>& patch, const double time,
                          const double dt, const string& component_name);
 
