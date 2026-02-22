@@ -319,14 +319,12 @@ int ElasFlow::advanceLevel(
   t_fem_solve->stop();
   /// 调用数值构件接口函数, 根据位移更新结点坐标.
   d_num_intc_displacement->computing(patch_level, current_time, actual_dt,false);
-  /// 调用数值构件接口函数, 计算应力.
-  d_num_intc_stress->computing(patch_level, current_time, actual_dt, false);
+
   d_num_intc_dual_rhs->computing(patch_level, current_time, actual_dt);
   int dual_vec_id = p_strategy->getSTRESSdualRHSID();
   int dual_sol_id = p_strategy->getSTRESSdualSolutionID();
   /// 这个方程中的矩阵是自伴随的
   /// 求解伴随方程
-
   tbox::pout << "**************************";
   tbox::pout <<"Solving Dual Problem";
   tbox::pout << "**************************"<<endl;
@@ -335,10 +333,16 @@ int ElasFlow::advanceLevel(
   d_solver_s_dual->setRHS(dual_vec_id);
   d_solver_s_dual->solve(first_step, dual_sol_id, patch_level, d_solver_db->getDatabase ("SolverDualStress"));
 
+  /// 调用数值构件接口函数, 计算应力.
+  /// Yin-Da Wang：由于应力与伴随应力要同时处理，因此把放在伴随方程的后面
+  d_num_intc_stress->computing(patch_level, current_time, actual_dt, false);
+
+  /// 应力数值恢复，本代码中不涉及这一功能
   tbox::pout<<"recovery "<<endl;
   t_fem_post->start();
   d_num_intc_recovery->computing(patch_level, current_time, actual_dt, false);
   t_fem_post->stop();
+  ///  后处理恢复应力，本代码中不涉及这一功能
   tbox::pout<<"postprocessing "<<endl;
   d_num_intc_postprocess->computing(patch_level, current_time, actual_dt, false);
   tbox::pout<<"dataexplorer "<<endl;

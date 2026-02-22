@@ -412,7 +412,7 @@ void PatchStrategy::initializeComponent(
     d_dof_info->registerToInitComponent(component);
     //update #8 @4
     d_dof_info_th->registerToInitComponent(component);
-  } else if (component_name == "INIT_SERIAL")          { //初始化模式
+  } else if (component_name == "INIT_PROC_0")          { //初始化模式
     component->registerInitPatchData(d_Cell_Temperature_id);
 
   }else if (component_name == "REBALANCE")          { //初始化模式
@@ -505,6 +505,9 @@ void PatchStrategy::initializePatchData(hier::Patch<NDIM>& patch,
   if (initial_time) {
     if (component_name == "INIT") { /*初始化矢量有限元 */
       initializeFEMComp(patch, time, initial_time,component_name);
+    }
+    else if(component_name == "INIT_PROC_0"){
+      initializeProc0Comp(patch, time, initial_time,component_name);
     }
 
   }
