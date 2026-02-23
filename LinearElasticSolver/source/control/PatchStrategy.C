@@ -519,6 +519,10 @@ void PatchStrategy::initializeProc0Comp(hier::Patch<NDIM>& patch,
                                       const string& component_name){
   int num_cells = patch.getNumberOfCells(0);
   GET_PATCH_DATA(patch,Cell_Temperature,d_Cell_Temperature_id,Cell,double);
+  /// 初始化为-1
+  for(int cc = 0; cc < num_cells; cc ++)
+    for(int qq = 0; qq < 4; qq ++)
+       (*Cell_Temperature)(qq,cc) = -1.;
 
   string ThermalFile = "ThermalDataOut.dat";
       std::fstream intp_file(ThermalFile.c_str());
@@ -2680,6 +2684,7 @@ void PatchStrategy::buildSTRESSprimalRHSOnPatch(hier::Patch<NDIM>& patch, const 
   /// 取出本地Patch的单元数目.
   int num_cells = patch.getNumberOfCells(1);
   //  int num_nodes = patch.getNumberOfNodes(0);
+  GET_PATCH_DATA(patch,Cell_Temperature,d_Cell_Temperature_id,Cell,double);
 
   for (int i = 0; i < num_cells; ++i) {
     int n_vertex = can_extent[i + 1] - can_extent[i];
@@ -2740,6 +2745,14 @@ void PatchStrategy::buildSTRESSprimalRHSOnPatch(hier::Patch<NDIM>& patch, const 
     /// Vinta Yin-Da Wang:静力学
     //    T_val[0] = 650.;T_val[1] = 650.;T_val[2] = 650.;T_val[3] = 650.;
     //    T_val[0] = 300.;T_val[1] = 300.;T_val[2] = 300.;T_val[3] = 300.;
+
+    /// 在使用网格级耦合的情况下，使用读入进去的温度数据
+    if(d_is_mesh_level_coupling){
+      for(int qq = 0; qq < 4; qq++){
+        TBOX_ASSERT((*Cell_Temperature)(qq,i)>0);
+        T_val[qq] = (*Cell_Temperature)(qq,i);
+      }
+    }
     ele->buildElementRHS(vertex, dt, time, ele_vec, d_newmark, (*materialid_data)(0,i),T_val,Tolder_val);
     for (int ii = 0; ii < n_dof; ++ii)
       vec_data->addVectorValue(node_mapping[ii], (*ele_vec)[ii]);
@@ -2812,9 +2825,20 @@ void PatchStrategy::buildSTRESSdualRHSOnPatch(hier::Patch<NDIM>& patch, const do
     for (int j = 0; j < n_dof; ++j) (*ele_vec)[j] = 0.0;
     int ele_material_id = (*materialid_data)(0,glo_cc);
     double ele_von_mises = (*von_mises)(0,glo_cc);
-    ele->buildDualElementRHS(vertex, dt, time, ele_vec, ele_material_id,Stress_value,ele_von_mises);
-    for (int ii = 0; ii < n_dof; ++ii)
-      dual_vec_data->addVectorValue(node_mapping[ii], (*ele_vec)[ii]);
+    int ele_entity_id = (*entityid_data)(0,glo_cc);
+
+    /// 寻找是否是goal-oriented的实体
+    /// 在是的情况下再将单元右端项填入
+    std::sort(d_goal_oriented_entity.getPointer(),
+              d_goal_oriented_entity.getPointer() + d_goal_oriented_entity.size());
+    if(std::binary_search(d_goal_oriented_entity.getPointer(),
+                          d_goal_oriented_entity.getPointer()+d_goal_oriented_entity.size(),
+                          ele_entity_id)){
+      ele->buildDualElementRHS(vertex, dt, time, ele_vec, ele_material_id,Stress_value,ele_von_mises);
+      for (int ii = 0; ii < n_dof; ++ii)
+        dual_vec_data->addVectorValue(node_mapping[ii], (*ele_vec)[ii]);
+    }
+
   }
   /// 伴随方程也具有边界条件
   /// 由于边界条件全0,只需要处理右端项即可,左端矩阵无需额外处理
