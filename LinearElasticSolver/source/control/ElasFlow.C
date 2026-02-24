@@ -170,9 +170,17 @@ void ElasFlow::initializeLevelIntegrator(
 void ElasFlow::initializeLevelData(
     const tbox::Pointer<hier::BasePatchLevel<NDIM> > level,
     const double init_data_time, const bool initial_time) {
-  /// 初始化网格层上的数据.
+  tbox::pout << "**************************";
+  tbox::pout <<"串行处理初始化中";
+  tbox::pout << "**************************"<<endl;
   d_init_proc0_intc->initializeLevelData(level,init_data_time, initial_time);
+  tbox::pout << "**************************";
+  tbox::pout <<"串行处理完成，正在进行重分布";
+  tbox::pout << "**************************"<<endl;
   d_rebalance_intc->rebalance(level);
+  tbox::pout << "**************************";
+  tbox::pout <<"重分布完成，正在执行初始化";
+  tbox::pout << "**************************"<<endl;
   d_init_intc->initializeLevelData(level, init_data_time, initial_time);
 }
 
