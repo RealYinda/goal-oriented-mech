@@ -97,7 +97,7 @@ FEM {
     query_file_name = "../input/TempQuery.dat"
     time_domain_solving = FALSE
     // 误差估计种类(0 关闭,1 普通,2 目标导向)
-    error_estimation_type = 2
+    error_estimation_type = 1
     // 这里的目标导向分析仅把指定位置的von Mises应力作为敏感度函数
     goal_oriented_entity = 0 
     // 是否是网格级耦合给定的数据
@@ -106,7 +106,7 @@ FEM {
 
 GridGeometry {
     MeshImportationParameter{
-        file_name = "../../mphtxt2k/code_validation_compute_mesh.k"
+        file_name = "../../mphtxt2k/code_validation_query_mesh.k"
         refine_times = 0
     }
 }

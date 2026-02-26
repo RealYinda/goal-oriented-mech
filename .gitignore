@@ -2,4 +2,5 @@ mphtxt2k/
 build*
 Sort/SortTool
 .vscode/
+buildApplicationLib.h
 CMakeLists.txt.user

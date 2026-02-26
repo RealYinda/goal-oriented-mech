@@ -2621,6 +2621,12 @@ void PatchStrategy::buildTh_RHSOnPatch(hier::Patch<NDIM>& patch,
   tbox::Pointer<pdat::NodeData<NDIM, double> > T_data =
       patch.getPatchData(th_Told_id);//
 
+
+
+  /// Add to debug !!!!
+  tbox::Pointer<pdat::CellData<NDIM, double> > plot_data =
+      patch.getPatchData(E_mag_id);
+
   /// 取出单元数目
   int num_cells = patch.getNumberOfCells(1);
 
@@ -2696,11 +2702,10 @@ void PatchStrategy::buildTh_RHSOnPatch(hier::Patch<NDIM>& patch,
     double u_val=((*Emag_data)(0,cell))*Sigma;
     //#endif
     double e_ThermalSource=u_val;//系统单元热源
-    double q=10000.;//50e8/0.6438;//30e9/1.033;;//10e9/2.5;//q=5e12/2.929;//单位体积热源
-    //    if((*entityid_data)(0,cell)==70||(*entityid_data)(0,cell)==71)
-    ///
-    /// add to debug!!!!!!
-    e_ThermalSource=e_ThermalSource+q;
+    double q=10000;//50e8/0.6438;//30e9/1.033;;//10e9/2.5;//q=5e12/2.929;//单位体积热源
+//    if((*entityid_data)(0,cell)==2||(*entityid_data)(0,i)==3)
+
+      e_ThermalSource=e_ThermalSource+q;
 
 
     /// 取出单元对象.
@@ -2713,7 +2718,7 @@ void PatchStrategy::buildTh_RHSOnPatch(hier::Patch<NDIM>& patch,
     for (int i = 0; i < n_vertex; ++i) {
       (*ele_vec)[i] = 0.0;
     }
-
+    (*plot_data)(0,i) = e_ThermalSource;
     /// 计算单元右端项，并组装。
     if(d_is_time_domain_solve)
       ele->buildTh_ElementRHS(vertex, dt, time, ele_vec, (*materialid_data)(0,cell),T_val, e_ThermalSource);
@@ -3322,6 +3327,7 @@ void PatchStrategy::registerPlotData(
   javis_writer->registerPlotQuantity("voltage_plot","SCALAR",E_plot_id);
   javis_writer->registerPlotQuantity("Emag","SCALAR",E_mag_id);
   javis_writer->registerPlotQuantity("mat_plot","SCALAR",material_num_id);
+  javis_writer->registerPlotQuantity("entity_plot","SCALAR",d_EntityIdOfCell_id);
 }
 
 /*************************************************************************

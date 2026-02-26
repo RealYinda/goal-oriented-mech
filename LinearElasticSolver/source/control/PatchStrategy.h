@@ -514,6 +514,9 @@ public:
    */
   tbox::Pointer<solv::DOFInfo<NDIM> > getDOFInfo() { return d_dof_info; }
 
+  double ComputeCellRadius(hier::Patch<NDIM>& patch,int cell);
+  double ComputeFaceRadius(hier::Patch<NDIM>& patch,int face);
+
 
   /// 支持CGAL的数据结构
   typedef CGAL::Simple_cartesian<double> CGAL_K;

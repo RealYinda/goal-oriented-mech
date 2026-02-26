@@ -326,6 +326,8 @@ void PatchStrategy::registerModelVariable() {
   DECLARE_VARIABLE(dual_volume_res_stress,Cell,double,NDIM,1);
   /// 伴随问题总误差
   DECLARE_VARIABLE(dual_cell_error_MECHANICS,Cell,double,1,1);
+  /// 总误差
+  DECLARE_VARIABLE(total_cell_error_MECHANICS,Cell,double,1,1);
 
   REGISTER_VARIABLE(primal_face_jump_stress_id, primal_face_jump_stress, current, 1);
   REGISTER_VARIABLE(primal_volume_res_stress_id, primal_volume_res_stress, current, 1);
@@ -333,6 +335,7 @@ void PatchStrategy::registerModelVariable() {
   REGISTER_VARIABLE(dual_face_jump_stress_id, dual_face_jump_stress, current, 1);
   REGISTER_VARIABLE(dual_volume_res_stress_id, dual_volume_res_stress, current, 1);
   REGISTER_VARIABLE(dual_cell_error_MECHANICS_id, dual_cell_error_MECHANICS, current, 1);
+  REGISTER_VARIABLE(total_cell_error_MECHANICS_id, total_cell_error_MECHANICS, current, 1);
 
   /** 伴随方程矩阵 **/
   DECLARE_MATVEC_VARIABLE(dual_solution, Vector, double, d_dof_info);  // 向量变量， 解向量
@@ -404,10 +407,10 @@ void PatchStrategy::initializeComponent(
     component->registerInitPatchData(dual_volume_res_stress_id);
     component->registerInitPatchData(dual_cell_error_MECHANICS_id);
 
+    component->registerInitPatchData(total_cell_error_MECHANICS_id);
+
     component->registerInitPatchData(d_dual_stress_id);
 
-    /// 插值得到的温度数据
-    component->registerInitPatchData(d_Cell_Temperature_id);
     /// 将dofInfo中的数据片注册到初始化构件。
     d_dof_info->registerToInitComponent(component);
     //update #8 @4
@@ -2466,6 +2469,11 @@ void PatchStrategy::Dataexplorer(hier::Patch<NDIM> &patch, const double time,
   tbox::Pointer<pdat::NodeData<NDIM, double> > node_temp =
       patch.getPatchData(th_plot_id);
 
+  GET_PATCH_DATA(patch,face_primal_error,primal_face_jump_stress_id,Face,double);
+  GET_PATCH_DATA(patch,face_dual_error,dual_face_jump_stress_id,Face,double);
+  GET_PATCH_DATA(patch,primal_MECHANICS_error,primal_cell_error_MECHANICS_id,Cell,double);
+  GET_PATCH_DATA(patch,dual_MECHANICS_error,dual_cell_error_MECHANICS_id,Cell,double);
+  GET_PATCH_DATA(patch,total_MECHANICS_error,total_cell_error_MECHANICS_id,Cell,double);
   int num_node = patch.getNumberOfNodes(0);
   int num_face = patch.getNumberOfFaces(0);
   int num_cell = patch.getNumberOfCells(0);
@@ -2473,6 +2481,31 @@ void PatchStrategy::Dataexplorer(hier::Patch<NDIM> &patch, const double time,
   DECLARE_ADJACENCY(patch, face, node, Face, Node);
   DECLARE_ADJACENCY(patch, face, cell, Face, Cell);
   DECLARE_ADJACENCY(patch, cell, node, Cell, Node);
+  DECLARE_ADJACENCY(patch, cell, face, Cell, Face);
+
+  /// 功能1：计算每个单元的误差贡献
+  for(int cc = 0; cc < num_cell; cc ++){
+    /// 正向问题的面跳量
+    double primal_RF = 0.;
+    /// 伴随问题的面跳量
+    double dual_RF = 0.;
+    for(int ff = 0; ff < 4; ff ++){
+      int glo_ff = cell_face_idx[cell_face_ext[cc]+ff];
+      /// 该边界面的尺寸
+      double h_e = ComputeFaceRadius(patch,glo_ff);
+      primal_RF += h_e*(*face_primal_error)(0,glo_ff)*(*face_primal_error)(0,glo_ff);
+      dual_RF += h_e*(*face_dual_error)(0,glo_ff)*(*face_dual_error)(0,glo_ff);
+    }
+    (*primal_MECHANICS_error)(0,cc) = sqrt(primal_RF);
+    (*dual_MECHANICS_error)(0,cc) = sqrt(dual_RF);
+    (*total_MECHANICS_error)(0,cc) = sqrt(sqrt(primal_RF)*sqrt(dual_RF));
+
+  }
+
+
+/// 这个代码块暂时置为不编译，因为暂不需要去导出平面或线数据
+/// 后续这个代码块要和input文件产生联动
+#if 0
 
   bool should_tree = false;
   for(int von_id = 0; von_id < d_improved_stress.size();von_id++){
@@ -2607,7 +2640,7 @@ void PatchStrategy::Dataexplorer(hier::Patch<NDIM> &patch, const double time,
     }
 
   }
-
+#endif
 
 }
 
@@ -4310,5 +4343,128 @@ void PatchStrategy::QueryFieldAtPoints(hier::Patch<NDIM>& patch, const string& i
   outfile.close();
 
 
+
+}
+
+
+/**
+ * @brief PatchStrategy::ComputeCellRadius
+ * @param patch
+ * @param cell
+ * @return 计算四面体的外接球半径
+ */
+double PatchStrategy::ComputeCellRadius(hier::Patch<NDIM>& patch,int cell){
+
+  tbox::Pointer<pdat::CellData<NDIM, double> > cell_volume =
+      patch.getPatchData(d_Cell_volume_id);
+  DECLARE_ADJACENCY(patch, cell, face, Cell, Face);
+  DECLARE_ADJACENCY(patch, cell, node, Cell, Node);
+  DECLARE_ADJACENCY(patch, cell, edge, Cell, Edge);
+  DECLARE_ADJACENCY(patch, edge, face, Edge, Face);
+  DECLARE_ADJACENCY(patch, edge, node, Edge, Node);
+  DECLARE_ADJACENCY(patch, edge, cell, Edge, Cell);
+  DECLARE_ADJACENCY(patch, face, cell, Face, Cell);
+  DECLARE_ADJACENCY(patch, face, node, Face, Node);
+  DECLARE_ADJACENCY(patch, face, edge, Face, Edge);
+
+
+
+  /**
+   * @brief node_coord: The coordinate of nodes
+   */
+  tbox::Pointer<pdat::NodeData<NDIM, double> > node_coord =
+      patch.getPatchGeometry()->getNodeCoordinates();
+
+  int kl_face = cell_face_idx[cell_face_ext[cell]];
+  double abc[3]; double abc1[3];
+  for (int face_edge = 0; face_edge < 3; face_edge++){
+    int abc_edge = face_edge_idx[face_edge_ext[kl_face]+face_edge];
+    int abc_edge1 = -1;
+    int node0 = edge_node_idx[edge_node_ext[abc_edge]];
+    int node1 = edge_node_idx[edge_node_ext[abc_edge]+1];
+    for (int ee = 0; ee < 6; ee ++) {
+      abc_edge1 = cell_edge_idx[cell_edge_ext[cell]+ee];
+      int node2 = edge_node_idx[edge_node_ext[abc_edge1]];
+      int node3 = edge_node_idx[edge_node_ext[abc_edge1]+1];
+      if((node0 != node2)&&(node0 != node3)&&(node1 != node2)&&(node1 != node3)){
+        /// First edge
+        double edge_dir1[NDIM];
+        double edge_dir2[NDIM];
+        for(int id =0; id < NDIM; id++){
+          edge_dir1[id] = (*node_coord)(id, node0)-(*node_coord)(id, node1);
+          edge_dir2[id] = (*node_coord)(id, node2)-(*node_coord)(id, node3);
+        }
+        abc[face_edge] = sqrt(edge_dir1[0]*edge_dir1[0]+edge_dir1[1]*edge_dir1[1]
+            +edge_dir1[2]*edge_dir1[2]);
+        abc1[face_edge] = sqrt(edge_dir2[0]*edge_dir2[0]+edge_dir2[1]*edge_dir2[1]
+            +edge_dir2[2]*edge_dir2[2]);
+
+      }
+    }
+
+  }
+  double Vol = (*cell_volume)(0,cell);
+  double pp = 0.5*(abc[0]*abc1[0]+abc[1]*abc1[1]+abc[2]*abc1[2]);
+  double Radius = sqrt(pp*(pp-abc[0]*abc1[0])*(pp-abc[1]*abc1[1])*(pp-abc[2]*abc1[2]))/(6*Vol);
+
+  return Radius;
+
+}
+
+/**
+ * @brief PatchStrategy::ComputeFaceRadius
+ * @param patch
+ * @param face
+ * @return 计算三角形的外接圆半径
+ */
+double PatchStrategy::ComputeFaceRadius(hier::Patch<NDIM>& patch,int face){
+  DECLARE_ADJACENCY(patch, face, node, Face, Node);
+
+  /**
+      * @brief node_coord: The coordinate of nodes
+      */
+  tbox::Pointer<pdat::NodeData<NDIM, double> > node_coord =
+      patch.getPatchGeometry()->getNodeCoordinates();
+
+  // 对于四面体网格，一个内部面是一个三角形，包含3个节点
+  int node0 = face_node_idx[face_node_ext[face] + 0];
+  int node1 = face_node_idx[face_node_ext[face] + 1];
+  int node2 = face_node_idx[face_node_ext[face] + 2];
+
+  // 分别计算三角形三条边的长度 a, b, c
+  double a = 0.0, b = 0.0, c = 0.0;
+  double dx, dy, dz;
+
+  /// 第一条边: node0 到 node1
+  dx = (*node_coord)(0, node0) - (*node_coord)(0, node1);
+  dy = (*node_coord)(1, node0) - (*node_coord)(1, node1);
+  dz = (*node_coord)(2, node0) - (*node_coord)(2, node1);
+  a = sqrt(dx*dx + dy*dy + dz*dz);
+
+  /// 第二条边: node1 到 node2
+  dx = (*node_coord)(0, node1) - (*node_coord)(0, node2);
+  dy = (*node_coord)(1, node1) - (*node_coord)(1, node2);
+  dz = (*node_coord)(2, node1) - (*node_coord)(2, node2);
+  b = sqrt(dx*dx + dy*dy + dz*dz);
+
+  /// 第三条边: node2 到 node0
+  dx = (*node_coord)(0, node2) - (*node_coord)(0, node0);
+  dy = (*node_coord)(1, node2) - (*node_coord)(1, node0);
+  dz = (*node_coord)(2, node2) - (*node_coord)(2, node0);
+  c = sqrt(dx*dx + dy*dy + dz*dz);
+
+  /// 利用海伦公式(Heron's formula)计算三角形面积
+  /// 面积 S = sqrt(p * (p - a) * (p - b) * (p - c)), 其中 p 是半周长
+  double p = 0.5 * (a + b + c);
+  /// std::max 防止因为浮点精度误差导致根号内部出现微小的负数
+  double area = sqrt(std::max(0.0, p * (p - a) * (p - b) * (p - c)));
+
+  // 计算外接圆半径 R = (a * b * c) / (4 * Area)
+  double Radius = 0.0;
+  if (area > 1e-14) { // 防止畸变或退化单元导致面积为0，产生除零错误
+    Radius = (a * b * c) / (4.0 * area);
+  }
+
+  return Radius;
 
 }
