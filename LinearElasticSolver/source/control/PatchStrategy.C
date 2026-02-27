@@ -344,7 +344,7 @@ void PatchStrategy::registerModelVariable() {
   REGISTER_VARIABLE(d_dual_STRESS_solution_id, dual_solution, current, 1);
   REGISTER_VARIABLE(d_dual_STRESS_rhs_id, dual_rhs, current, 1);
 
-  DECLARE_VARIABLE(Cell_Temperature,Cell,double,4,1);
+  DECLARE_VARIABLE(Cell_Temperature,Cell,double,1,1);
   REGISTER_VARIABLE(d_Cell_Temperature_id, Cell_Temperature, current, 1);
 
   DECLARE_VARIABLE(dual_stress,Cell,double,6,1);
@@ -524,7 +524,7 @@ void PatchStrategy::initializeProc0Comp(hier::Patch<NDIM>& patch,
   GET_PATCH_DATA(patch,Cell_Temperature,d_Cell_Temperature_id,Cell,double);
   /// 初始化为-1
   for(int cc = 0; cc < num_cells; cc ++)
-    for(int qq = 0; qq < 4; qq ++)
+    for(int qq = 0; qq < 1; qq ++)
        (*Cell_Temperature)(qq,cc) = -1.;
 
   string ThermalFile = "ThermalDataOut.dat";
@@ -2782,8 +2782,8 @@ void PatchStrategy::buildSTRESSprimalRHSOnPatch(hier::Patch<NDIM>& patch, const 
     /// 在使用网格级耦合的情况下，使用读入进去的温度数据
     if(d_is_mesh_level_coupling){
       for(int qq = 0; qq < 4; qq++){
-        TBOX_ASSERT((*Cell_Temperature)(qq,i)>0);
-        T_val[qq] = (*Cell_Temperature)(qq,i);
+        TBOX_ASSERT((*Cell_Temperature)(0,i)>0);
+        T_val[qq] = (*Cell_Temperature)(0,i);
       }
     }
     ele->buildElementRHS(vertex, dt, time, ele_vec, d_newmark, (*materialid_data)(0,i),T_val,Tolder_val);

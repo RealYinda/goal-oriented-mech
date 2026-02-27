@@ -3597,6 +3597,9 @@ void PatchStrategy::QueryFieldAtPoints(hier::Patch<NDIM>& patch, const string& i
   Tree AABB_tree_on_patch(triangles.begin(),triangles.end());
   AABB_tree_on_patch.build();
   AABB_tree_on_patch.accelerate_distance_queries();
+
+  /// 获得本patch上的包围盒子
+  hier::BoundingBox<NDIM> BB_patch = patch_geo->getBoundingBox(num_cells);
   // 6. 读取输入文件并查询
   ifstream infile;
   infile.open(input_filename.c_str(), ios::in);
@@ -3622,49 +3625,55 @@ void PatchStrategy::QueryFieldAtPoints(hier::Patch<NDIM>& patch, const string& i
     if(!(buf >> q_num >> q_quad >> q_x >> q_y >> q_z)) continue;
     double query_coord[3] = {q_x, q_y, q_z};
     CGAL_K::Point_3 query_pt(q_x, q_y, q_z);
-    // 7. 使用 Tree 查找最近的边界三角形
-    /// 找到最近的点
-    Tree::Point_and_primitive_id
-        pp = AABB_tree_on_patch.closest_point_and_primitive(query_pt);
-    /// 最近邻的三角形面
-    Tree::Primitive_id cc = pp.second;
-    int glo_face = cc->id;
-    bool found = false;
-    /// 看下它在哪个邻接体中
-    for(int loc_cell = 0; loc_cell < face_cell_ext[glo_face+1]-face_cell_ext[glo_face];loc_cell ++){
-      int glo_cell = face_cell_idx[face_cell_ext[glo_face]+loc_cell];
-      tbox::Vector<double> QuadVec(4);
-      tbox::Vector<double> QuadSol(4);
-      bool incell = false;
-      double local_coord[4][3];
-      double candidate_weight[NDIM+1];
-      int node_indices[4];
-      for(int can = cell_node_ext[glo_cell]; can < cell_node_ext[glo_cell+1]; can ++){
-        int ln = can - cell_node_ext[glo_cell];
-        int gn = cell_node_idx[can];
-        local_coord[ln][0] = (*node_coord)(0,gn);
-        local_coord[ln][1] = (*node_coord)(1,gn);
-        local_coord[ln][2] = (*node_coord)(2,gn);
-        node_indices[ln] = cell_node_idx[cell_node_ext[glo_cell] + ln];
+    hier::DoubleVector<NDIM> dv_pt(q_x,q_y,q_z);
+    /// 这个点在包围盒子里再考虑
+    if(BB_patch.contains(dv_pt)){
+      // 7. 使用 Tree 查找最近的边界三角形
+      /// 找到最近的点
+      Tree::Point_and_primitive_id
+          pp = AABB_tree_on_patch.closest_point_and_primitive(query_pt);
+      /// 最近邻的三角形面
+      Tree::Primitive_id cc = pp.second;
+      int glo_face = cc->id;
+      bool found = false;
+      /// 看下它在哪个邻接体中
+      for(int loc_cell = 0; loc_cell < face_cell_ext[glo_face+1]-face_cell_ext[glo_face];loc_cell ++){
+        int glo_cell = face_cell_idx[face_cell_ext[glo_face]+loc_cell];
+        tbox::Vector<double> QuadVec(4);
+        tbox::Vector<double> QuadSol(4);
+        bool incell = false;
+        double local_coord[4][3];
+        double candidate_weight[NDIM+1];
+        int node_indices[4];
+        for(int can = cell_node_ext[glo_cell]; can < cell_node_ext[glo_cell+1]; can ++){
+          int ln = can - cell_node_ext[glo_cell];
+          int gn = cell_node_idx[can];
+          local_coord[ln][0] = (*node_coord)(0,gn);
+          local_coord[ln][1] = (*node_coord)(1,gn);
+          local_coord[ln][2] = (*node_coord)(2,gn);
+          node_indices[ln] = cell_node_idx[cell_node_ext[glo_cell] + ln];
 
-      }
-      incell = PatchPointWeightInCell(query_coord, &local_coord[0][0],candidate_weight);
-      /// 如果在这个体里面的话，输出该输出的数据
-      if(incell && glo_cell < num_cells){
-        double interp_value = 0.0;
-        for(int n = 0; n < 4; ++n) {
-          // 获取节点上的值，这里假设是 th_Told_id
-          double node_val = (*T_data)(0, node_indices[n]);
-          interp_value += node_val * candidate_weight[n];
         }
-        // 输出：坐标 + 单元ID + 插值结果
-        outfile << q_num << "\t" << q_quad << "\t"<< q_x << "\t" << q_y << "\t" << q_z << "\t"
-                << interp_value << endl;
-        found = true;
-        break;
+        incell = PatchPointWeightInCell(query_coord, &local_coord[0][0],candidate_weight);
+        /// 如果在这个体里面的话，输出该输出的数据
+        if(incell && glo_cell < num_cells){
+          double interp_value = 0.0;
+          for(int n = 0; n < 4; ++n) {
+            // 获取节点上的值，这里假设是 th_Told_id
+            double node_val = (*T_data)(0, node_indices[n]);
+            interp_value += node_val * candidate_weight[n];
+          }
+          // 输出：坐标 + 单元ID + 插值结果
+          outfile << q_num << "\t" << q_quad << "\t"<< q_x << "\t" << q_y << "\t" << q_z << "\t"
+                  << interp_value << endl;
+          found = true;
+          break;
 
+        }
       }
+
     }
+
 
   }
   infile.close();

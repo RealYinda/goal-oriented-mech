@@ -469,7 +469,7 @@ void OneOrderPatchStrategy::postProcess(hier::Patch<NDIM>& patch,
   appu::TetQuad quad(patch, patch.getPatchData(d_Cell_volume_id),
                      patch.getPatchData(d_Cell_jacobian_id));
   appu::TetQuad::Quad ** Quad_patch = quad.GetQuadTable();
-  appu::TetQuad::Quad *Quad_order = Quad_patch[2];
+  appu::TetQuad::Quad *Quad_order = Quad_patch[0];
   std::ofstream intpFile;
   intpFile.open(d_file_name_query.c_str());
   intpFile.close();
