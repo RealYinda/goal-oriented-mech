@@ -3599,7 +3599,7 @@ void PatchStrategy::QueryFieldAtPoints(hier::Patch<NDIM>& patch, const string& i
   AABB_tree_on_patch.accelerate_distance_queries();
 
   /// 获得本patch上的包围盒子
-  hier::BoundingBox<NDIM> BB_patch = patch_geo->getBoundingBox(num_cells);
+  hier::BoundingBox<NDIM> BB_patch = patch_geo->getBoundingBox(num_nodes);
   // 6. 读取输入文件并查询
   ifstream infile;
   infile.open(input_filename.c_str(), ios::in);
