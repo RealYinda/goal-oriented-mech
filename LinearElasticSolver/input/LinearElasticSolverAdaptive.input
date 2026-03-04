@@ -89,7 +89,7 @@ FEM {
         }
     }
     constraint_types = "displacement10"
-    constraint_marks = 2
+    constraint_marks = 3
     load_types       = "node_force"
     load_marks       = 0
     convection_boundary = 2,3,4,5,6
@@ -97,16 +97,20 @@ FEM {
     query_file_name = "../input/TempQuery.dat"
     time_domain_solving = FALSE
     // 误差估计种类(0 关闭,1 普通,2 目标导向)
-    error_estimation_type = 1
+    error_estimation_type = 2
     // 这里的目标导向分析仅把指定位置的von Mises应力作为敏感度函数
-    goal_oriented_entity = 0 
+    goal_oriented_entity = 43, 45, 58, 59, 60, 61, 76, 78, 91, 92, 93, 94 
     // 是否是网格级耦合给定的数据
-    mesh_level_coupling = TRUE
+    mesh_level_coupling = FALSE
+    // 是否需要温度场求解数据
+    temperature_computation = FALSE
+    // 如果不需要温度场求解数据，等温域的数据
+    fixed_temperature = 400.0
 }
 
 GridGeometry {
     MeshImportationParameter{
-        file_name = "../../mphtxt2k/code_validation_query_mesh.k"
+        file_name = "../../mphtxt2k/TSV_DaisyChain.k"
         refine_times = 0
     }
 }

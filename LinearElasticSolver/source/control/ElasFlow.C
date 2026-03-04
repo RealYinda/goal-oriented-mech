@@ -83,6 +83,8 @@ void ElasFlow::initializeLevelIntegrator(
   // 数值构件: 计算应力.
   d_num_intc_stress = new algs::NumericalIntegratorComponent<NDIM>(
         "STRESS", d_patch_strategy, manager);
+  d_num_intc_dual_stress = new algs::NumericalIntegratorComponent<NDIM>(
+        "DUAL_STRESS", d_patch_strategy, manager);
   /// 数值构件：数值误差
   d_num_intc_error_est = new algs::NumericalIntegratorComponent<NDIM>(
         "ERROR_EST", d_patch_strategy, manager);
@@ -170,17 +172,21 @@ void ElasFlow::initializeLevelIntegrator(
 void ElasFlow::initializeLevelData(
     const tbox::Pointer<hier::BasePatchLevel<NDIM> > level,
     const double init_data_time, const bool initial_time) {
-  tbox::pout << "**************************";
-  tbox::pout << "串行处理初始化中";
-  tbox::pout << "**************************"<<endl;
-  d_init_proc0_intc->initializeLevelData(level,init_data_time, initial_time);
-  tbox::pout << "**************************";
-  tbox::pout << "串行处理完成，正在进行重分布";
-  tbox::pout << "**************************"<<endl;
-  d_rebalance_intc->rebalance(level);
-  tbox::pout << "**************************";
-  tbox::pout << "重分布完成，正在执行初始化";
-  tbox::pout << "**************************"<<endl;
+  if(d_fem_db->getBool("temperature_computation")){
+    tbox::pout << "**************************";
+    tbox::pout << "串行处理初始化中";
+    tbox::pout << "**************************"<<endl;
+    d_init_proc0_intc->initializeLevelData(level,init_data_time, initial_time);
+    tbox::pout << "**************************";
+    tbox::pout << "串行处理完成，正在进行重分布";
+    tbox::pout << "**************************"<<endl;
+    d_rebalance_intc->rebalance(level);
+    tbox::pout << "**************************";
+    tbox::pout << "重分布完成，正在执行初始化";
+    tbox::pout << "**************************"<<endl;
+
+  }
+
   d_init_intc->initializeLevelData(level, init_data_time, initial_time);
 }
 
@@ -331,6 +337,7 @@ int ElasFlow::advanceLevel(
   tbox::pout << "Update Displacement Data";
   tbox::pout << "**************************"<<endl;
   d_num_intc_displacement->computing(patch_level, current_time, actual_dt,false);
+  d_num_intc_stress->computing(patch_level, current_time, actual_dt, false);
   if(d_fem_db->getInteger("error_estimation_type")==2){
     d_num_intc_dual_rhs->computing(patch_level, current_time, actual_dt);
     int dual_vec_id = p_strategy->getSTRESSdualRHSID();
@@ -351,7 +358,7 @@ int ElasFlow::advanceLevel(
 
   /// 调用数值构件接口函数, 计算应力.
   /// Yin-Da Wang：由于应力与伴随应力要同时处理，因此把放在伴随方程的后面
-  d_num_intc_stress->computing(patch_level, current_time, actual_dt, false);
+  d_num_intc_dual_stress->computing(patch_level, current_time, actual_dt, false);
   /// 误差估计模块
   tbox::pout << "**************************";
   tbox::pout << "Error Estimation";

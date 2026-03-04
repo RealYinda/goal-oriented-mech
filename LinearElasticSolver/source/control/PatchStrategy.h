@@ -762,6 +762,9 @@ private:
   tbox::Array<int> d_goal_oriented_entity;
   /// 温度数据来自单网格还是多网格
   bool d_is_mesh_level_coupling;
+  bool d_is_temperature_computation;
+  /// 如果不使用温度求解，固定温度是多少
+  double d_fixed_temperature;
   /// 输入数据库指针.
   tbox::Pointer<tbox::Database> d_input_db;
 

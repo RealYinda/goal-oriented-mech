@@ -162,7 +162,7 @@ private:
 
   /*!@brief 数值构件: 计算应力 */
   tbox::Pointer<algs::NumericalIntegratorComponent<NDIM> > d_num_intc_stress;
-
+  tbox::Pointer<algs::NumericalIntegratorComponent<NDIM> > d_num_intc_dual_stress;
   /*!@brief 数值构件: 更新位移 */
   tbox::Pointer<algs::NumericalIntegratorComponent<NDIM> >
   d_num_intc_displacement;

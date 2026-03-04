@@ -410,6 +410,8 @@ void PatchStrategy::initializeComponent(
     component->registerInitPatchData(total_cell_error_MECHANICS_id);
 
     component->registerInitPatchData(d_dual_stress_id);
+    if(!d_is_temperature_computation)
+      component->registerInitPatchData(d_Cell_Temperature_id);
 
     /// 将dofInfo中的数据片注册到初始化构件。
     d_dof_info->registerToInitComponent(component);
@@ -441,6 +443,7 @@ void PatchStrategy::initializeComponent(
     component->registerPatchData(E_matrix_id);
     component->registerPatchData(E_solution_id);
     component->registerPatchData(E_rhs_id);
+
   } else if (component_name == "LOAD") {  // 数值构件，加载载荷.
   } else if (component_name == "CONS") {  // 数值构件，加载约束.
   } else if (component_name == "MAT") {   // 数值构件，计算矩阵。
@@ -455,6 +458,8 @@ void PatchStrategy::initializeComponent(
     component->registerCommunicationPatchData(d_solution_id, d_solution_id);
   } else if (component_name == "STRESS") {        // 数值构件, 计算应力.
     component->registerCommunicationPatchData(d_solution_id, d_solution_id);
+  } else if (component_name == "DUAL_STRESS") {        // 数值构件, 计算应力.
+    component->registerCommunicationPatchData(d_dual_STRESS_solution_id, d_dual_STRESS_solution_id);
   } else if (component_name == "RECOVERY") {        // 数值构件, 计算应力.
     component->registerCommunicationPatchData(d_solution_id, d_solution_id);
     component->registerCommunicationPatchData(d_contained_domain_id, d_contained_domain_id);
@@ -500,8 +505,8 @@ void PatchStrategy::initializePatchData(hier::Patch<NDIM>& patch,
                                         const double time,
                                         const bool initial_time,
                                         const string& component_name) {
-//#ifdef DEBUG_CHECK_ASSERTIONS
-//  TBOX_ASSERT(component_name == "INIT");
+  //#ifdef DEBUG_CHECK_ASSERTIONS
+  //  TBOX_ASSERT(component_name == "INIT");
   //#endif
   NULL_USE(time); /**< 初始化中没有用到time */
 
@@ -517,28 +522,28 @@ void PatchStrategy::initializePatchData(hier::Patch<NDIM>& patch,
 }
 /// 把需要串行读入的数据在这里处理掉
 void PatchStrategy::initializeProc0Comp(hier::Patch<NDIM>& patch,
-                                      const double time,
-                                      const bool initial_time,
-                                      const string& component_name){
+                                        const double time,
+                                        const bool initial_time,
+                                        const string& component_name){
   int num_cells = patch.getNumberOfCells(0);
   GET_PATCH_DATA(patch,Cell_Temperature,d_Cell_Temperature_id,Cell,double);
   /// 初始化为-1
   for(int cc = 0; cc < num_cells; cc ++)
     for(int qq = 0; qq < 1; qq ++)
-       (*Cell_Temperature)(qq,cc) = -1.;
+      (*Cell_Temperature)(qq,cc) = -1.;
 
   string ThermalFile = "ThermalDataOut.dat";
-      std::fstream intp_file(ThermalFile.c_str());
-      string line;
-      while( getline(intp_file, line) ){
-          stringstream buf(line);
-          int cell_index,quad_index;
-          double coord[NDIM],temp_data;
-          buf >> cell_index;buf >> quad_index;
-          buf >> coord[0]>> coord[1]>> coord[2];
-          buf >> temp_data;
-          (*Cell_Temperature)(quad_index,cell_index) = temp_data;
-      }
+  std::fstream intp_file(ThermalFile.c_str());
+  string line;
+  while( getline(intp_file, line) ){
+    stringstream buf(line);
+    int cell_index,quad_index;
+    double coord[NDIM],temp_data;
+    buf >> cell_index;buf >> quad_index;
+    buf >> coord[0]>> coord[1]>> coord[2];
+    buf >> temp_data;
+    (*Cell_Temperature)(quad_index,cell_index) = temp_data;
+  }
 
 }
 
@@ -965,9 +970,8 @@ void PatchStrategy::computeOnPatch(hier::Patch<NDIM>& patch, const double time,
     updateCoordinate(patch, time, dt, component_name);
   } else if (component_name == "STRESS") {  // 数值构件, 计算应力.
     computeStress(patch, time, dt, component_name);
-    if(d_error_estimation_type == 2){
-      computeDualStress(patch, time, dt, component_name);
-    }
+  }else if (component_name == "DUAL_STRESS"){
+    computeDualStress(patch, time, dt, component_name);
   } else if (component_name == "RECOVERY") {  // 数值构件, 计算应力.
     StressRecovery(patch, time, dt, component_name);
   } else if (component_name == "POSTPROCESS") {  // 数值构件, 计算应力.
@@ -1270,8 +1274,8 @@ void PatchStrategy::computeStress(hier::Patch<NDIM>& patch, const double time,
 
 
 void PatchStrategy::computeDualStress(hier::Patch<NDIM>& patch, const double time,
-                                  const double dt,
-                                  const string& component_name) {
+                                      const double dt,
+                                      const string& component_name) {
   /// 取出本地PatchGeometry.
   tbox::Pointer<hier::PatchGeometry<NDIM> > patch_geo =
       patch.getPatchGeometry();
@@ -1282,7 +1286,7 @@ void PatchStrategy::computeDualStress(hier::Patch<NDIM>& patch, const double tim
   tbox::Pointer<pdat::NodeData<NDIM, double> > node_coord =
       patch_geo->getNodeCoordinates();
   tbox::Pointer<pdat::VectorData<NDIM, double> > vec_data =
-      patch.getPatchData(d_solution_id);
+      patch.getPatchData(d_dual_STRESS_solution_id);
 
   tbox::Pointer<pdat::CellData<NDIM, double> > str_data =
       patch.getPatchData(d_dual_stress_id);
@@ -2028,7 +2032,7 @@ void PatchStrategy::StressRecovery(hier::Patch<NDIM>& patch, const double time,
 /// 应力误差的估计
 /// 此处的误差估计分为两个函数,分别管理正向误差和伴随误差
 void PatchStrategy::STRESS_ErrorEst(hier::Patch<NDIM>& patch, const double time,
-                                   const double dt, const string& component_name){
+                                    const double dt, const string& component_name){
   int num_faces = patch.getNumberOfFaces(0);
   int num_cells = patch.getNumberOfCells(0);
   /// 逐个面考虑面误差
@@ -2215,7 +2219,7 @@ void PatchStrategy::DualStressErrorEstOnCell(hier::Patch<NDIM>& patch, int cell)
   DECLARE_ADJACENCY(patch,cell,node,Cell,Node);
 
   GET_PATCH_DATA(patch,material_id,material_num_id,Cell,int);
-  GET_PATCH_DATA(patch,primal_face_jump_stress,primal_face_jump_stress_id,Face,double);
+  GET_PATCH_DATA(patch,dual_face_jump_stress,dual_face_jump_stress_id,Face,double);
   GET_PATCH_DATA(patch,T_data,th_Told_id,Node,double);
   GET_PATCH_DATA(patch,volume,d_Cell_volume_id,Cell,double);
   tbox::Pointer<MaterialManager<NDIM> > material_manager =
@@ -2503,8 +2507,8 @@ void PatchStrategy::Dataexplorer(hier::Patch<NDIM> &patch, const double time,
   }
 
 
-/// 这个代码块暂时置为不编译，因为暂不需要去导出平面或线数据
-/// 后续这个代码块要和input文件产生联动
+  /// 这个代码块暂时置为不编译，因为暂不需要去导出平面或线数据
+  /// 后续这个代码块要和input文件产生联动
 #if 0
 
   bool should_tree = false;
@@ -2651,8 +2655,8 @@ void PatchStrategy::Dataexplorer(hier::Patch<NDIM> &patch, const double time,
  *  基于前两步位移计算右端项
  ************************************************************************/
 void PatchStrategy::buildSTRESSprimalRHSOnPatch(hier::Patch<NDIM>& patch, const double time,
-                                    const double dt,
-                                    const string& component_name) {
+                                                const double dt,
+                                                const string& component_name) {
 
   /// 取出本地PatchGeometry.
   tbox::Pointer<hier::PatchGeometry<NDIM> > patch_geo =
@@ -2786,6 +2790,12 @@ void PatchStrategy::buildSTRESSprimalRHSOnPatch(hier::Patch<NDIM>& patch, const 
         T_val[qq] = (*Cell_Temperature)(0,i);
       }
     }
+    else{
+      if(!d_is_temperature_computation)
+        for(int qq = 0; qq < 4; qq++){
+          T_val[qq] = d_fixed_temperature;
+        }
+    }
     ele->buildElementRHS(vertex, dt, time, ele_vec, d_newmark, (*materialid_data)(0,i),T_val,Tolder_val);
     for (int ii = 0; ii < n_dof; ++ii)
       vec_data->addVectorValue(node_mapping[ii], (*ele_vec)[ii]);
@@ -2796,8 +2806,8 @@ void PatchStrategy::buildSTRESSprimalRHSOnPatch(hier::Patch<NDIM>& patch, const 
 
 /// 建立伴随方程求解的右端项
 void PatchStrategy::buildSTRESSdualRHSOnPatch(hier::Patch<NDIM>& patch, const double time,
-                                    const double dt,
-                                    const string& component_name) {
+                                              const double dt,
+                                              const string& component_name) {
 
   /// 取出本地PatchGeometry.
   tbox::Pointer<hier::PatchGeometry<NDIM> > patch_geo =
@@ -2939,7 +2949,7 @@ void PatchStrategy::buildMatrixOnPatch(hier::Patch<NDIM>& patch,
       }
     }
     elem_T = (T_val[0]+T_val[1]+T_val[2]+T_val[3])/4;
-//    elem_T = 600.;
+    //    elem_T = 600.;
 
     tbox::Pointer<tbox::Matrix<double> > ele_mat = new tbox::Matrix<double>();
     ele_mat->resize(n_dof, n_dof);
@@ -3977,10 +3987,10 @@ void PatchStrategy::registerPlotData(
   javis_writer->registerPlotQuantity("voltage_plot","SCALAR",E_plot_id);
   javis_writer->registerPlotQuantity("Emag","SCALAR",E_mag_id);
   javis_writer->registerPlotQuantity("mat_plot","SCALAR",material_num_id);
-  javis_writer->registerPlotQuantity("Stress error (primal)","SCALAR",primal_cell_error_MECHANICS_id);
-  javis_writer->registerPlotQuantity("Stress error (dual)","SCALAR",dual_cell_error_MECHANICS_id);
+  javis_writer->registerPlotQuantity("Stress error primal","SCALAR",primal_cell_error_MECHANICS_id);
+  javis_writer->registerPlotQuantity("Stress error dual","SCALAR",dual_cell_error_MECHANICS_id);
 
-  javis_writer->registerPlotQuantity("Stress error (total)","SCALAR",total_cell_error_MECHANICS_id);
+  javis_writer->registerPlotQuantity("Stress error total","SCALAR",total_cell_error_MECHANICS_id);
 
 }
 
@@ -4078,6 +4088,18 @@ void PatchStrategy::getFromInput(tbox::Pointer<tbox::Database> db) {
   } else {
     TBOX_ERROR(d_object_name << ": "
                << " No key `mesh_level_coupling' found in data." << endl);
+  }
+  if (db->keyExists("temperature_computation")) {
+    d_is_temperature_computation = db->getBool("temperature_computation");
+  } else {
+    TBOX_ERROR(d_object_name << ": "
+               << " No key `temperature_computation' found in data." << endl);
+  }
+  if (db->keyExists("fixed_temperature")) {
+    d_fixed_temperature = db->getDouble("fixed_temperature");
+  } else {
+    TBOX_ERROR(d_object_name << ": "
+               << " No key `fixed_temperature' found in data." << endl);
   }
 }
 
