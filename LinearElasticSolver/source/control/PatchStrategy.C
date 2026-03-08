@@ -2505,6 +2505,33 @@ void PatchStrategy::Dataexplorer(hier::Patch<NDIM> &patch, const double time,
     (*total_MECHANICS_error)(0,cc) = sqrt(sqrt(primal_RF)*sqrt(dual_RF));
 
   }
+  // 输出文件，正向误差
+  stringstream ss_forward;
+  ss_forward << "Forward_Error_Data_On_Patch_" << patch.getIndex() << ".dat";
+  ofstream outfile1;
+  outfile1.open(ss_forward.str().c_str(), ios::out);
+  outfile1 << std::fixed << std::setprecision(12);
+
+  stringstream ss_total;
+  ss_total << "Total_Error_Data_On_Patch_" << patch.getIndex() << ".dat";
+  ofstream outfile2;
+  outfile2.open(ss_total.str().c_str(), ios::out);
+  outfile2 << std::fixed << std::setprecision(12);
+
+  /// 功能2：以下输出待分析的误差
+  for(int cc = 0; cc < num_cell; cc ++){
+    double coord_cc[NDIM] = {(*cell_coord)(0,cc),
+                            (*cell_coord)(1,cc),
+                            (*cell_coord)(2,cc)};
+    outfile1<<coord_cc[0]<<"\t"<<coord_cc[1]<<"\t"<<coord_cc[2]<<"\t"
+                                  <<(*primal_MECHANICS_error)(0,cc)<<endl;
+    outfile2<<coord_cc[0]<<"\t"<<coord_cc[1]<<"\t"<<coord_cc[2]<<"\t"
+                                  <<(*total_MECHANICS_error)(0,cc)<<endl;
+
+  }
+  outfile1.close();
+  outfile2.close();
+
 
 
   /// 这个代码块暂时置为不编译，因为暂不需要去导出平面或线数据

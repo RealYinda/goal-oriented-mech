@@ -6,3 +6,5 @@ buildApplicationLib.h
 CMakeLists.txt.user
 *.k
 *.dat
+run_simulation
+results

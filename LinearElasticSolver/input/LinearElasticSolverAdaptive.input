@@ -69,23 +69,27 @@ FEM {
             print_iter_info    = 1
         }
         SolverStress {
-            solver_name = "HYPRE_PCG"
-            solver_tol      = 1.0e-40                    // 解法器阈值
-            solver_max_iter = 40000                      // 解法器最大迭代步数
-            solver_min_iter = 1                         // 解法器最小迭代步数
-            max_iter = 5000
-            residual_tol= 1.0e-12
-            print_iter_info    = 1
+            //solver_name = "HYPRE_PCG"
+            //solver_tol      = 1.0e-40                    // 解法器阈值
+            //solver_max_iter = 40000                      // 解法器最大迭代步数
+            //solver_min_iter = 1                         // 解法器最小迭代步数
+            //max_iter = 5000
+            //residual_tol= 1.0e-12
+            //print_iter_info    = 1
+solver_name ="PETSc_Solver"
+			expert_options = "-ksp_converged_reason -ksp_type preonly -pc_type lu -pc_factor_mat_solver_package superlu_dist"
         }
 
 	SolverDualStress {
-            solver_name = "HYPRE_PCG"
-            solver_tol      = 1.0e-40                    // 解法器阈值
-            solver_max_iter = 40000                      // 解法器最大迭代步数
-            solver_min_iter = 1                         // 解法器最小迭代步数
-            max_iter = 5000
-            residual_tol= 1.0e-12
-            print_iter_info    = 1
+            //solver_name = "HYPRE_PCG"
+            //solver_tol      = 1.0e-40                    // 解法器阈值
+            //solver_max_iter = 40000                      // 解法器最大迭代步数
+            //solver_min_iter = 1                         // 解法器最小迭代步数
+            //max_iter = 5000
+            //residual_tol= 1.0e-12
+            //print_iter_info    = 1
+solver_name ="PETSc_Solver"
+			expert_options = "-ksp_converged_reason -ksp_type preonly -pc_type lu -pc_factor_mat_solver_package superlu_dist"
         }
     }
     constraint_types = "displacement10"
