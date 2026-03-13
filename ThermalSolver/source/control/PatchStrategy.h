@@ -686,6 +686,8 @@ private:
   tbox::Array<int> d_load_marks;    /**< 载荷作用的点集标识数组 */
   /// 对流边界条件对应的边界编号
   tbox::Array<int> d_convection_boundary;
+  /// 电流密度注入对应的边界条件编号
+  tbox::Array<int> d_current_boundary;
   /// 需要应力恢复的体编号
   tbox::Array<int> d_improved_stress;
 

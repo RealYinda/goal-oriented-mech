@@ -83,6 +83,7 @@ FEM {
     load_types       = "node_force"
     load_marks       = 0
     convection_boundary = 2,3,4,5,6
+    current_boundary = 2,3,4,5,6
     improved_stress = 0
     query_file_name = "../input/TempQuery.dat"
     time_domain_solving = FALSE

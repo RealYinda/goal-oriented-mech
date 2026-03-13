@@ -202,19 +202,22 @@ int ElasFlow::advanceLevel(
   /// 获取参数
   tbox::Pointer<PatchStrategy> p_strategy = d_patch_strategy;
 
-  tbox::pout<<"电场方程求解中...... "<<endl;
+  tbox::pout << "**************************";
+  tbox::pout << "电场方程求解中";
+  tbox::pout << "**************************"<<endl;
   t_fem_solve->start();
   double max[3]={0,0,0};
 #if 0
   ///////////////////////////////////////////////////////////////////////////////////////////
   //update #9 电计算
   E_num_intc_mat->computing(patch_level, current_time, actual_dt);
+  /// 调用数值构件接口函数,加载约束
+  E_num_intc_cons->computing(patch_level, current_time, actual_dt);
 
   /// 调用数值构件接口函数,计算并组装右端项
   E_num_intc_rhs->computing(patch_level, current_time, actual_dt);
 
-  /// 调用数值构件接口函数,加载约束
-  E_num_intc_cons->computing(patch_level, current_time, actual_dt);
+
 
   int mat_id_E = p_strategy->getE_MatrixID();
   int vec_id_E = p_strategy->getE_RHSID();
@@ -223,7 +226,10 @@ int ElasFlow::advanceLevel(
   d_solver_E->setMatrix(mat_id_E);
   d_solver_E->setRHS(vec_id_E);
   d_solver_E->solve(first_step, sol_id_E, patch_level, d_solver_db->getDatabase ("SolverE"));
-  tbox::pout<<"电场方程求解结束，正在进行后处理...... "<<endl;
+  tbox::pout << "**************************";
+  tbox::pout<<"电场方程求解结束，正在进行后处理";
+  tbox::pout << "**************************"<<endl;
+
   E_num_intc_plot->computing(patch_level, current_time, actual_dt, false);
 #endif
   /////////////////////////////////////////////////////////////////////////////////////////////
@@ -256,7 +262,7 @@ int ElasFlow::advanceLevel(
   tbox::pout<<"结束热传导方程计算，正在进行后处理 "<<endl;
   th_num_intc_plot->computing(patch_level, current_time, actual_dt, false);
   d_Max_T_intc->reduction(&max[0], 1, patch_level, current_time, actual_dt);
-  d_num_intc_thermal_post->computing(patch_level, current_time, actual_dt, false);
+//  d_num_intc_thermal_post->computing(patch_level, current_time, actual_dt, false);
 
   if (tbox::MPI::getRank() == 0){
     ofstream outdata;

@@ -2973,6 +2973,7 @@ void PatchStrategy::applyE_Constraint(hier::Patch<NDIM>& patch, const double tim
       patch.getPatchData(E_rhs_id);
   /// 结点数目
   int num_nodes = patch.getNumberOfNodes();
+  int num_faces = patch.getNumberOfEntities(hier::EntityUtilities::FACE, 1);
 
   /// 自由度信息中的映射信息。
   int* dof_map = d_dof_info_th->getDOFMapping(patch, hier::EntityUtilities::NODE);
@@ -2981,10 +2982,55 @@ void PatchStrategy::applyE_Constraint(hier::Patch<NDIM>& patch, const double tim
   int* col_idx = mat_data->getColumnIndicesPointer();
   double* mat_val = mat_data->getValuePointer();
   double* vec_val = vec_data->getPointer();
+  tbox::Array<int>face_node_ext,face_node_idx;
+  patch.getPatchTopology()->getFaceAdjacencyNodes(face_node_ext,face_node_idx);
+  tbox::Pointer<pdat::NodeData<NDIM, double> > node_coord =
+      patch_geo->getNodeCoordinates();
 
   int step=(time+0.5*dt)/dt;
   //#if 0
   /// 边界条件处理.
+  /// 添加了电流注入的边界条件 2026-03-10
+  for (int conv_id = 0; conv_id < d_current_boundary.size(); conv_id++){
+    double current_coef = 4e5;
+    if (patch_geo->hasEntitySet(d_current_boundary[conv_id],
+                                hier::EntityUtilities::FACE,patch.getNumberOfFaces(1))){
+      const tbox::Array<int>& Face_idx =
+          patch_geo->getEntityIndicesInSet(
+            d_current_boundary[conv_id],
+            hier::EntityUtilities::FACE, num_faces);
+      int size = Face_idx.getSize();
+      for (int face=0; face<size;face++){
+        int node_id[3]={0,0,0};
+        int n=3;
+        double b[3]={0,0,0};
+        double k[3][3]={{0,0,0},{0,0,0},{0,0,0}};
+        //面上三角形的三个顶点编号
+        node_id[0]=face_node_idx[face_node_ext[Face_idx[face]]];//Face_idx[face]面的编号
+        node_id[1]=face_node_idx[face_node_ext[Face_idx[face]]+1];
+        node_id[2]=face_node_idx[face_node_ext[Face_idx[face]]+2];
+        tbox::Array<hier::DoubleVector<NDIM> > vertex(n);
+        for (int k=0; k<n;k++){
+          for(int j=0; j<n;j++){
+            vertex[k][j]=(*node_coord)(j,node_id[k]);
+          }
+        }
+        double area = sqrt(AREA(vertex[0], vertex[1], vertex[2]))
+            / 2.0;
+        for (int i = 0; i < 3; i++) {
+          b[i] =  -current_coef * area / 3.0;
+        }
+        for (int i = 0; i < 3; i++) {
+          if(d_is_time_domain_solve)
+            vec_data->addVectorValue(dof_map[node_id[i]], b[i]*dt);
+          else
+            vec_data->addVectorValue(dof_map[node_id[i]], b[i]);
+        }
+      }
+
+    }
+  }
+  mat_data->assemble();
   if (patch_geo->hasEntitySet(1, hier::EntityUtilities::NODE)) {
     // 获取指定编号和类型的集合包含的网格实体的索引。
     const tbox::Array<int>& entity_idx = patch_geo->getEntityIndicesInSet(
@@ -3181,8 +3227,6 @@ void PatchStrategy::buildE_MatrixOnPatch(hier::Patch<NDIM>& patch, const double 
       }
     }
   }
-  /// 矩阵组装。
-  mat_data->assemble();
   // cout<<"matrix ok"<<endl;
 }
 
@@ -3389,6 +3433,13 @@ void PatchStrategy::getFromInput(tbox::Pointer<tbox::Database> db) {
     TBOX_ERROR(d_object_name << ": "
                << " No key `convection_boundary' found in data." << endl);
   }
+  if (db->keyExists("current_boundary")) {
+    d_current_boundary = db->getIntegerArray("current_boundary");
+  } else {
+    TBOX_ERROR(d_object_name << ": "
+               << " No key `current_boundary' found in data." << endl);
+  }
+
   if (db->keyExists("improved_stress")) {
     d_improved_stress = db->getIntegerArray("improved_stress");
   } else {
