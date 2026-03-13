@@ -337,8 +337,21 @@ int ElasFlow::advanceLevel(
   tbox::pout << "Update Displacement Data";
   tbox::pout << "**************************"<<endl;
   d_num_intc_displacement->computing(patch_level, current_time, actual_dt,false);
+  tbox::pout << "**************************";
+  tbox::pout << "Finished Update Displacement Data";
+  tbox::pout << "**************************"<<endl;
+  tbox::pout << "**************************";
+  tbox::pout << "Update Stress Data";
+  tbox::pout << "**************************"<<endl;
+
   d_num_intc_stress->computing(patch_level, current_time, actual_dt, false);
+  tbox::pout << "**************************";
+  tbox::pout << "Finished Update Stress Data";
+  tbox::pout << "**************************"<<endl;
   if(d_fem_db->getInteger("error_estimation_type")==2){
+    tbox::pout << "**************************";
+    tbox::pout << "Update Dual Stress Excitation";
+    tbox::pout << "**************************"<<endl;
     d_num_intc_dual_rhs->computing(patch_level, current_time, actual_dt);
     int dual_vec_id = p_strategy->getSTRESSdualRHSID();
     int dual_sol_id = p_strategy->getSTRESSdualSolutionID();

@@ -454,6 +454,8 @@ void PatchStrategy::initializeComponent(
     component->registerCommunicationPatchData(th_Tolder_id, th_Tolder_id);
   } else if (component_name == "DUAL_RHS") {   // 数值构件，计算右端项.
     component->registerCommunicationPatchData(d_dual_STRESS_solution_id, d_dual_STRESS_solution_id);
+    component->registerCommunicationPatchData(d_stress_id, d_stress_id);
+    component->registerCommunicationPatchData(d_von_mises_id, d_von_mises_id);
   } else if (component_name == "DISPLACEMENT") {  // 数值构件, 更新位移.
     component->registerCommunicationPatchData(d_solution_id, d_solution_id);
   } else if (component_name == "STRESS") {        // 数值构件, 计算应力.
