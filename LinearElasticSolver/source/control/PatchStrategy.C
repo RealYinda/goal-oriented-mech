@@ -251,11 +251,11 @@ void PatchStrategy::registerModelVariable() {
 
 
 
-  d_stress_id = db->registerVariableAndContext(stress, current);
+  d_stress_id = db->registerVariableAndContext(stress, current,1);
   d_plot_id = db->registerVariableAndContext(plot, current);
 
   //update #2
-  d_von_mises_id = db->registerVariableAndContext(von_mises_stress, current);
+  d_von_mises_id = db->registerVariableAndContext(von_mises_stress, current,1);
 
   //update #1 @3
   entity_num_id = db->registerVariableAndContext(EntityIdOfCell, current, 1);
@@ -468,7 +468,7 @@ void PatchStrategy::initializeComponent(
     component->registerCommunicationPatchData(th_Told_id, th_Told_id);
     component->registerCommunicationPatchData(th_Tolder_id, th_Tolder_id);
   } else if (component_name == "ERROR_EST") {        // 数值构件, 计算应力.
-    component->registerCommunicationPatchData(d_improved_coefficient_id, d_improved_coefficient_id);
+    component->registerCommunicationPatchData(d_dual_stress_id, d_dual_stress_id);
   }else if (component_name == "POSTPROCESS") {        // 数值构件, 计算应力.
     component->registerCommunicationPatchData(d_improved_coefficient_id, d_improved_coefficient_id);
   }else if (component_name == "DATAEXPLORE") {        // 数值构件, 计算应力.
@@ -760,7 +760,7 @@ void PatchStrategy::initializeFEMComp(hier::Patch<NDIM>& patch,
 
     for(int m_id=0;m_id<Alloy_id_len;m_id++)
       if((*entityid_data)(0,iii)==Alloy_id[m_id])
-      {(*materialid_data)(0,iii)=2;}
+      {(*materialid_data)(0,iii)=17;}
     for(int m_id=0;m_id<Silicon_id_len;m_id++)
       if((*entityid_data)(0,iii)==Silicon_id[m_id])
       {(*materialid_data)(0,iii)=1;}
